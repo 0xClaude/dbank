@@ -2,7 +2,7 @@ import styles from "./Navbar.module.css";
 import { connectWeb } from "../../connections/connect-blockchain";
 import { useContext } from "react";
 import { Context } from "@/pages";
-import { Switch } from "@mui/material";
+import { Switch, stepConnectorClasses } from "@mui/material";
 import NightsStayIcon from '@mui/icons-material/NightsStay';
 import { Input } from "@mui/material";
 import { Box } from "@mui/material";
@@ -18,7 +18,8 @@ export default function Navbar() {
         try {
             await connectWeb();
         } catch (error) {
-            console.log("Error");
+            console.log(error);
+            setConnected(false);
         }
         setLoading(false);
     };
@@ -35,7 +36,6 @@ export default function Navbar() {
     };
 
     const changeTheme = () => {
-        console.log("Changed theme");
         setDark(() => !dark);
     };
 

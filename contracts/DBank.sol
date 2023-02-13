@@ -4,8 +4,8 @@ pragma solidity 0.8.17;
 contract DBank {
 
     address public owner;
-    mapping(address => bool) admin;
-    mapping(address => bool) blacklist;
+    mapping(address => bool) public admin;
+    mapping(address => bool) public blacklist;
 
     struct Transaction {
         address payable recipient;
@@ -49,5 +49,17 @@ contract DBank {
 
     function showOwnTxs(address _addr) public view returns (Transaction[] memory) {
         return transactions[_addr];
+    }
+
+    function addAdmin(address _addr) public {
+        admin[_addr] = true;
+    }
+
+    function removeAdmin(address _addr) public {
+        admin[_addr] = false;
+    }
+
+    function addBlacklist(address _addr) public {
+        blacklist[_addr] = true;
     }
 }
