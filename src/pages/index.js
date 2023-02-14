@@ -16,6 +16,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [address, setAddress] = useState(undefined);
   const [connected, setConnected] = useState(false);
+  const [owner, setOwner] = useState(false);
   const [admin, setAdmin] = useState(false);
   const [blacklist, setBlacklist] = useState(false);
   const [dark, setDark] = useState(false);
@@ -28,7 +29,7 @@ export default function App() {
     [dark],
   );
 
-  const context = useMemo(() => { return { loading, setLoading, address, setAddress, connected, setConnected, admin, setAdmin, blacklist, setBlacklist, dark, setDark } });
+  const context = useMemo(() => { return { loading, setLoading, address, setAddress, connected, setConnected, owner, setOwner, admin, setAdmin, blacklist, setBlacklist, dark, setDark } });
 
   useEffect(() => {
     const connectWallet = async () => {

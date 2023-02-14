@@ -2,15 +2,13 @@ import styles from "./Navbar.module.css";
 import { connectWeb } from "../../connections/connect-blockchain";
 import { useContext } from "react";
 import { Context } from "@/pages";
-import { Switch, stepConnectorClasses } from "@mui/material";
+import { Switch, Input, Box  } from "@mui/material";
 import NightsStayIcon from '@mui/icons-material/NightsStay';
-import { Input } from "@mui/material";
-import { Box } from "@mui/material";
 import Search from "@mui/icons-material/Search";
 
 export default function Navbar() {
 
-    const { loading, setLoading, connected, setConnected, blacklist, admin, setAdmin, address, dark, setDark } = useContext(Context);
+    const { loading, setLoading, connected, setConnected, owner, setOwner, blacklist, admin, setAdmin, address, dark, setDark } = useContext(Context);
 
     const connection = async () => {
         setLoading(true);
@@ -47,16 +45,13 @@ export default function Navbar() {
                     <h3><span className={styles.highlight}>De</span>centralised Bank</h3>
                 </div>
                 <div className={styles.rightbar}>
-                    {!loading && connected && !blacklist && (
-                        <div className={styles.search}>
-                            <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: '1rem' }}>
-                                <Search color="primary" />
-                                <Input>
-                                </Input>
-                            </Box>
-                        </div>
+                    {!loading && connected && !blacklist && owner && (
+                        <p>Logged in as contract owner</p>
                     )
                     }
+                    {!loading && connected && !blacklist && admin && !owner && (
+                        <p>Logged in as contract admin</p>
+                    )}
                     <div className={styles.colormode}>
                         <NightsStayIcon color="primary" />
                         <Switch onChange={changeTheme} />
