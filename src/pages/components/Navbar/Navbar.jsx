@@ -1,14 +1,13 @@
-import styles from "./Navbar.module.css";
-import { connectWeb } from "../../connections/connect-blockchain";
-import { useContext } from "react";
 import { Context } from "@/pages";
-import { Switch, Input, Box  } from "@mui/material";
 import NightsStayIcon from '@mui/icons-material/NightsStay';
-import Search from "@mui/icons-material/Search";
+import { Switch } from "@mui/material";
+import { useContext } from "react";
+import { connectWeb } from "../../connections/connect-blockchain";
+import styles from "./Navbar.module.css";
 
 export default function Navbar() {
 
-    const { loading, setLoading, connected, setConnected, owner, setOwner, blacklist, admin, setAdmin, address, dark, setDark } = useContext(Context);
+    const { loading, setLoading, connected, setConnected, balance, blacklist, address, dark, setDark } = useContext(Context);
 
     const connection = async () => {
         setLoading(true);
@@ -26,12 +25,16 @@ export default function Navbar() {
         setConnected(false);
     };
 
-    const shortAddress = (addrStr) => {
+    const shorter = (addrStr) => {
         if (addrStr.length <= 8) {
             return addrStr;
         }
         return addrStr.slice(0, 4) + "..." + addrStr.slice(-4);
     };
+
+    const shortBalance = (amount) => {
+        return Number(amount).toFixed(2);
+    }
 
     const changeTheme = () => {
         setDark(() => !dark);
@@ -45,12 +48,8 @@ export default function Navbar() {
                     <h3><span className={styles.highlight}>De</span>centralised Bank</h3>
                 </div>
                 <div className={styles.rightbar}>
-                    {!loading && connected && !blacklist && owner && (
-                        <p>Logged in as contract owner</p>
-                    )
-                    }
-                    {!loading && connected && !blacklist && admin && !owner && (
-                        <p>Logged in as contract admin</p>
+                    {connected && address && !blacklist && (
+                        <p>Balance: {shortBalance(balance)}</p>
                     )}
                     <div className={styles.colormode}>
                         <NightsStayIcon color="primary" />
@@ -60,7 +59,7 @@ export default function Navbar() {
                         {loading && <p>Please wait ...</p>}
                         {!loading && blacklist && <span className={styles.login}>Banned</span>}
                         {!loading && !connected && !blacklist && <span onClick={connection} className={styles.login}>Connect Wallet</span>}
-                        {!loading && connected && !blacklist && <span onClick={disconnect} className={styles.login}>{shortAddress(address)}</span>}
+                        {!loading && connected && !blacklist && <span onClick={disconnect} className={styles.login}>{shorter(address)}</span>}
                     </div>
                 </div>
             </div>

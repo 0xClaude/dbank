@@ -1,21 +1,23 @@
-import Navbar from "./components/Navbar/Navbar";
-import Main from "./components/Main/Main";
-import { useState, useEffect, createContext, useMemo } from "react";
-import Head from "next/head";
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
-import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { CssBaseline } from "@mui/material";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
+import Head from "next/head";
+import { createContext, useEffect, useMemo, useState } from "react";
+import Main from "./components/Main/Main";
+import Navbar from "./components/Navbar/Navbar";
 
 
 export const Context = createContext();
 
 export default function App() {
   const [loading, setLoading] = useState(false);
-  const [address, setAddress] = useState(undefined);
   const [connected, setConnected] = useState(false);
+  const [address, setAddress] = useState(undefined);
+  const [balance, setBalance] = useState(0);
+  const [contractBalance, setContractBalance] = useState(0);
   const [owner, setOwner] = useState(false);
   const [admin, setAdmin] = useState(false);
   const [blacklist, setBlacklist] = useState(false);
@@ -29,7 +31,7 @@ export default function App() {
     [dark],
   );
 
-  const context = useMemo(() => { return { loading, setLoading, address, setAddress, connected, setConnected, owner, setOwner, admin, setAdmin, blacklist, setBlacklist, dark, setDark } });
+  const context = useMemo(() => { return { loading, setLoading, address, setAddress, connected, setConnected, balance, setBalance, contractBalance, setContractBalance, owner, setOwner, admin, setAdmin, blacklist, setBlacklist, dark, setDark } });
 
   useEffect(() => {
     const connectWallet = async () => {

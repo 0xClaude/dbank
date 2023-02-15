@@ -1,14 +1,15 @@
-import styles from "./Main.module.css";
-import { useContext, useEffect, useRef } from "react";
 import { Context } from "@/pages";
+import AccountCircle from '@mui/icons-material/AccountCircle';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
-import { Avatar, TextField, Button, FormControl } from "@mui/material";
-import AccountCircle from '@mui/icons-material/AccountCircle';
+import { Avatar, Button, TextField } from "@mui/material";
 import Box from '@mui/material/Box';
+import { useContext, useEffect, useRef } from "react";
+import styles from "./Main.module.css";
 
-import { ABI, contractAddress } from "@/pages/web3/contract";
+import { ABI, ABI2, contractAddress, vaultAddress } from "@/pages/web3/contract";
 import Web3 from "web3";
+import { ServerStyleSheet } from "styled-components";
 
 export default function Main(props) {
 
@@ -17,11 +18,14 @@ export default function Main(props) {
     const banAddress = useRef(null);
     const sendTo = useRef(null);
     const amount = useRef(null);
+    const withdrawAmount = useRef(null);
+    const unbanAddress = useRef(null);
 
-    const { loading, setLoading, address, setAddress, connected, setConnected, owner, setOwner, admin, setAdmin, blacklist, setBlacklist } = useContext(Context);
+    const { loading, setLoading, address, setAddress, connected, setConnected, balance, setBalance, contractBalance, setContractBalance, owner, setOwner, admin, setAdmin, blacklist, setBlacklist } = useContext(Context);
 
-    const web3 = new Web3(new Web3.providers.HttpProvider("http://127.0.0.1:7545"));
+    const web3 = new Web3(new Web3.providers.WebsocketProvider("ws://127.0.0.1:7545"));
     const contract = new web3.eth.Contract(ABI, contractAddress);
+    const vault = new web3.eth.Contract(ABI2, vaultAddress);
 
     useEffect(() => {
         const checkBan = async () => {
@@ -36,24 +40,68 @@ export default function Main(props) {
             }
         }
         checkBan();
+        checkContractBalance();
+        checkBalance();
     }, [address]);
 
-    const makeAdmin = async (e) => {
-        e.preventDefault();
-        await contract.methods.addAdmin(addAddress.current.value).send({ from: address });
+    useEffect(() => {
+        contract.events.adminAdded().on("data", (event) => {
+            console.log(event.returnValues[0]);
+        }).on("error", console.error);
+
+        // Cleanup
+        return () => {
+            contract.events.adminAdded().removeAllListeners("data");
+            contract.events.adminAdded().removeAllListeners("error");
+
+        }
+    }, [])
+
+    const checkBalance = async () => {
+        address !== undefined && setBalance(web3.utils.fromWei(await web3.eth.getBalance(address)));
+    }
+
+    const checkContractBalance = async () => {
+        setContractBalance(await vault.methods.getBalance().call());
+    }
+
+    const makeAdmin = async () => {
+        try {
+            await contract.methods.addAdmin(addAddress.current.value).send({ from: address });
+        } catch (error) {
+            console.log(error);
+        }
         addAddress.current.value === address && setAdmin(true);
     }
 
-    const removeAdmin = async (e) => {
-        e.preventDefault();
-        await contract.methods.removeAdmin(removeAddress.current.value).send({ from: address });
+    const removeAdmin = async () => {
+        try {
+            await contract.methods.removeAdmin(removeAddress.current.value).send({ from: address });
+        } catch (error) {
+            if (error.reason) {
+                console.log(`Error: ${error.reason}`);
+            } else {
+                console.log(`No message: ${error}`);
+            }
+        }
         removeAddress.current.value === address && setAdmin(false);
     }
 
-    const addBan = async (e) => {
-        e.preventDefault();
-        await contract.methods.addBlacklist(banAddress.current.value).send({ from: address });
+    const addBan = async () => {
+        try {
+            await contract.methods.addBlacklist(banAddress.current.value).send({ from: address });
+        } catch (error) {
+            console.log(error);
+        }
         banAddress.current.value === address && setBlacklist(true);
+    }
+
+    const removeBan = async () => {
+        try {
+            await contract.methods.removeBlacklist(unbanAddress.current.value).send({ from: address });
+        } catch (error) {
+            console.log(error);
+        }
     }
 
     const sendEther = async (e) => {
@@ -62,10 +110,27 @@ export default function Main(props) {
             to: sendTo.current.value,
             value: web3.utils.toWei(amount.current.value, "ether")
         }
-        const tx = await web3.eth.sendTransaction(transaction, (error, result) => {
-            if (error) { console.log(error); }
-            else { console.log("All went well"); }
-        });
+        try {
+            await web3.eth.sendTransaction(transaction, (error, result) => {
+                if (error) { console.log(error); }
+                else { console.log("All went well"); }
+            });
+        } catch (error) {
+            console.log(error);
+        }
+        checkContractBalance();
+        checkBalance();
+
+    }
+
+    const withdraw = async (e) => {
+        try {
+            await vault.methods.withdraw(web3.utils.toWei(withdrawAmount.current.value)).send({ from: address });
+        } catch (error) {
+            console.log(error);
+        }
+        checkContractBalance();
+        checkBalance();
     }
 
     return (
@@ -73,8 +138,8 @@ export default function Main(props) {
             <div className={styles.main}>
                 {!loading && !connected && <p>Please connect your wallet</p>}
                 {loading && <p>Please wait ...</p>}
-                {blacklist && (<p className={styles.banned}><RemoveCircleOutlineIcon />You are banned.</p>)}
-                {!loading && !blacklist && connected && (
+                {blacklist && <p className={styles.banned}><RemoveCircleOutlineIcon />You are banned.</p>}
+                {!loading && !blacklist && connected && !blacklist && (
                     <>
                         <div className={styles.welcome}>
                             <div className={styles.topwelcome}>
@@ -88,6 +153,9 @@ export default function Main(props) {
                                     <p>Welcome, admin</p>
                                 )
                                 }
+                                {connected && !admin && !owner && (
+                                    <p>Welcome to DBank</p>
+                                )}
                             </div>
                         </div>
 
@@ -95,35 +163,54 @@ export default function Main(props) {
                     </>
                 )}
                 {!loading && !blacklist && connected && owner && (
-                    <div>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
-                            <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
-                            <TextField label="Address" variant="standard" inputRef={removeAddress} />
-                            <Button onClick={removeAdmin}>Remove admin</Button>
-                        </Box>
+                    <div className={styles.topwelcome}>
                         <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
                             <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
                             <TextField label="Address" variant="standard" inputRef={addAddress} />
                             <Button onClick={makeAdmin}>Add admin</Button>
                         </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
+                            <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
+                            <TextField label="Address" variant="standard" inputRef={removeAddress} />
+                            <Button onClick={removeAdmin}>Remove admin</Button>
+                        </Box>
                     </div>
                 )}
-                <div>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
-                        <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
-                        <TextField label="Address" variant="standard" inputRef={banAddress} />
-                        <Button onClick={addBan}>Ban user</Button>
-                    </Box>
-                </div>
+                {!loading && !blacklist && connected && admin || owner && (
+                    <div className={styles.topwelcome}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
+                            <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
+                            <TextField label="Address" variant="standard" inputRef={banAddress} />
+                            <Button onClick={addBan}>Ban user</Button>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
+                            <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
+                            <TextField label="Address" variant="standard" inputRef={unbanAddress} />
+                            <Button onClick={removeBan}>Unban user</Button>
+                        </Box>
+                    </div>
+                )}
+
 
             </div>
-            <hr />
-            <div className={styles.transaction}>
-                <h3>Send a transaction</h3>
-                <TextField label="To" variant="standard" inputRef={sendTo} />
-                <TextField label="Amount" variant="standard" inputRef={amount} />
-                <Button onClick={sendEther}>Send</Button>
-            </div>
+            {connected && !blacklist && (
+                <div className={styles.transaction}>
+                    <h3>Send a transaction</h3>
+                    <TextField label="To" variant="standard" inputRef={sendTo} />
+                    <TextField label="Amount" variant="standard" inputRef={amount} />
+                    <Button onClick={sendEther}>Send</Button>
+                </div>
+            )}
+
+            {connected && !blacklist && owner && (
+                <div className={styles.transaction}>
+                    <h3>Withdraw from contract</h3>
+                    <h4>Balance: {web3.utils.fromWei(String(contractBalance))} Ether</h4>
+                    <TextField label="Amount" variant="standard" inputRef={withdrawAmount} />
+                    <Button onClick={withdraw}>Withdraw</Button>
+                </div>
+            )}
+
         </>
     )
 }
