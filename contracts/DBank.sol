@@ -87,13 +87,18 @@ contract DBank {
     }
 
     function approveTransfer(address _from, uint _transactionId) public onlyAdmin {
-        Transaction memory tx = transactions[_from][_transactionId];
-        require(!tx.approved, "Transaction was already approved");
-
-        tx.approved = true;
-        transfer(_from, tx.recipient, tx.amount);
+        Transaction memory transaction = transactions[_from][_transactionId];
+        require(!transaction.approved, "Transaction was already approved");
+        transaction.approved = true;
+        transfer(_from, transaction.recipient, transaction.amount);
     }
 
-    function transfer(address _from, address payable _recipient, uint256 _amount) public {}
+    function transfer(address _from, address payable _recipient, uint256 _amount) public {
+        // TODO implement transfer function
+    }
+
+    function checkTransfers(address _from) public view returns (Transaction[] memory) {
+        return transactions[_from];
+    }
 
 }

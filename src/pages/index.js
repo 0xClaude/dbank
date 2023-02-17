@@ -5,55 +5,84 @@ import '@fontsource/roboto/700.css';
 import { CssBaseline } from "@mui/material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import Head from "next/head";
-import { createContext, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useReducer } from "react";
 import Main from "./components/Main/Main";
 import Navbar from "./components/Navbar/Navbar";
 
+// Initializing the state and the useReducer hook
 
-export const Context = createContext();
+const initialState = {
+  loading: false,
+  connected: false,
+  address: undefined,
+  balance: 0,
+  contractBalance: 0,
+  owner: false,
+  admin: false,
+  blacklist: false,
+  dark: false
+}
+
+const reducer = (state, action) => {
+  switch (action.type) {
+    case "setLoading":
+      return { ...state, loading: action.payload };
+    case "setConnected":
+      return { ...state, connected: action.payload };
+    case "setAddress":
+      return { ...state, address: action.payload };
+    case "setBalance":
+      return { ...state, balance: action.payload };
+    case "setContractBalance":
+      return { ...state, contractBalance: action.payload };
+    case "setOwner":
+      return { ...state, owner: action.payload };
+    case "setAdmin":
+      return { ...state, admin: action.payload };
+    case "setBlacklist":
+      return { ...state, blacklist: action.payload };
+    case "setDark":
+      return { ...state, dark: action.payload };
+    default:
+      throw new Error(`Received: ${action.type}`);
+  }
+}
 
 export default function App() {
-  const [loading, setLoading] = useState(false);
-  const [connected, setConnected] = useState(false);
-  const [address, setAddress] = useState(undefined);
-  const [balance, setBalance] = useState(0);
-  const [contractBalance, setContractBalance] = useState(0);
-  const [owner, setOwner] = useState(false);
-  const [admin, setAdmin] = useState(false);
-  const [blacklist, setBlacklist] = useState(false);
-  const [dark, setDark] = useState(false);
+
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const reduceProps = { state, dispatch };
 
   const theme = useMemo(() => createTheme({
     palette: {
-      mode: dark ? 'dark' : 'light',
+      mode: state.dark ? 'dark' : 'light',
     },
   }),
-    [dark],
+    [state.dark],
   );
 
-  const context = useMemo(() => { return { loading, setLoading, address, setAddress, connected, setConnected, balance, setBalance, contractBalance, setContractBalance, owner, setOwner, admin, setAdmin, blacklist, setBlacklist, dark, setDark } });
 
   useEffect(() => {
     const connectWallet = async () => {
-      setLoading(true);
+      dispatch({ type: "setLoading", payload: true });
       const account = await ethereum.request({ method: "eth_accounts" });
       if (account.length > 0) {
-        setAddress(account[0]);
-        setConnected(true);
+        dispatch({ type: "setAddress", payload: account[0] });
+        dispatch({ type: "setConnected", payload: true });
       }
-      setLoading(false);
+      dispatch({ type: "setLoading", payload: false });
     }
+
     connectWallet();
 
     ethereum.on("accountsChanged", (accounts) => {
       if (accounts.length > 0) {
-        setConnected(true);
-        setAddress(accounts[0]);
+        dispatch({ type: "setConnected", payload: true });
+        dispatch({ type: "setAddress", payload: accounts[0] });
       }
     });
 
   }, []);
-
 
   return (
     <>
@@ -62,10 +91,8 @@ export default function App() {
         <Head>
           <title>DBank3</title>
         </Head>
-        <Context.Provider value={context}>
-          <Navbar />
-          <Main />
-        </Context.Provider>
+        <Navbar {...reduceProps} />
+        <Main {...reduceProps} />
       </ThemeProvider>
     </>
   )

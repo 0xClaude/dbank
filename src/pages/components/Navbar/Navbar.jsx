@@ -1,28 +1,25 @@
-import { Context } from "@/pages";
 import NightsStayIcon from '@mui/icons-material/NightsStay';
 import { Switch } from "@mui/material";
-import { useContext } from "react";
 import { connectWeb } from "../../connections/connect-blockchain";
 import styles from "./Navbar.module.css";
 
-export default function Navbar() {
+export default function Navbar(props) {
 
-    const { loading, setLoading, connected, setConnected, balance, blacklist, address, dark, setDark } = useContext(Context);
 
     const connection = async () => {
-        setLoading(true);
-        setConnected(true);
+        props.dispatch({ type: "setLoading", payload: true });
+        props.dispatch({ type: "setConnected", payload: true });
         try {
             await connectWeb();
         } catch (error) {
             console.log(error);
-            setConnected(false);
+            props.dispatch({ type: "setConnected", payload: false });
         }
-        setLoading(false);
+        props.dispatch({ type: "setLoading", payload: false });
     };
 
     const disconnect = () => {
-        setConnected(false);
+        props.dispatch({ type: "setConnected", payload: false });
     };
 
     const shorter = (addrStr) => {
@@ -37,7 +34,7 @@ export default function Navbar() {
     }
 
     const changeTheme = () => {
-        setDark(() => !dark);
+        props.dispatch({ type: "setConnected", payload: !props.state.dark });
     };
 
 
@@ -48,18 +45,18 @@ export default function Navbar() {
                     <h3><span className={styles.highlight}>De</span>centralised Bank</h3>
                 </div>
                 <div className={styles.rightbar}>
-                    {connected && address && !blacklist && (
-                        <p>Balance: {shortBalance(balance)}</p>
+                    {props.state.connected && props.state.address && !props.state.blacklist && (
+                        <p>Balance: {shortBalance(props.state.balance)}</p>
                     )}
                     <div className={styles.colormode}>
                         <NightsStayIcon color="primary" />
                         <Switch onChange={changeTheme} />
                     </div>
                     <div>
-                        {loading && <p>Please wait ...</p>}
-                        {!loading && blacklist && <span className={styles.login}>Banned</span>}
-                        {!loading && !connected && !blacklist && <span onClick={connection} className={styles.login}>Connect Wallet</span>}
-                        {!loading && connected && !blacklist && <span onClick={disconnect} className={styles.login}>{shorter(address)}</span>}
+                        {props.state.loading && <p>Please wait ...</p>}
+                        {!props.state.loading && props.state.blacklist && <span className={styles.login}>Banned</span>}
+                        {!props.state.loading && !props.state.connected && !props.state.blacklist && <span onClick={connection} className={styles.login}>Connect Wallet</span>}
+                        {!props.state.loading && props.state.connected && !props.state.blacklist && <span onClick={disconnect} className={styles.login}>{shorter(props.state.address)}</span>}
                     </div>
                 </div>
             </div>
