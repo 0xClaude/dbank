@@ -34,7 +34,7 @@ export default function Navbar(props) {
     }
 
     const changeTheme = () => {
-        props.dispatch({ type: "setConnected", payload: !props.state.dark });
+        props.dispatch({ type: "setDark", payload: !props.state.dark });
     };
 
 
