@@ -2,7 +2,6 @@
 pragma solidity 0.8.17;
 
 contract DBank {
-    
     // State variable for the contract owner
     address public owner;
 
@@ -27,7 +26,11 @@ contract DBank {
     event blacklistAdded(address _addr);
     event blacklistRemoved(address _addr);
     event etherSent(uint256 amount, address _to);
-    event transferRequested(address _from, address payable _to, uint256 _amount);
+    event transferRequested(
+        address _from,
+        address payable _to,
+        uint256 _amount
+    );
     event transferApproved(address _from, uint256 _id);
     event transactionSend(address _from, uint256 _transactionId);
 
@@ -64,12 +67,16 @@ contract DBank {
 
     function isBlacklisted(address _addr) public view returns (bool) {
         return blacklist[_addr];
+    }
 
-    function checkTransfers(address _from) public view returns (Transaction[] memory) {
+    function checkTransfers(address _from)
+        public
+        view
+        returns (Transaction[] memory)
+    {
         return transactions[_from];
     }
-    }
-    
+
     // Admin related functions
     function addAdmin(address _addr) public onlyOwner {
         require(admin[_addr] == false, "User is already admin");
@@ -103,7 +110,10 @@ contract DBank {
     }
 
     // Admins can approve transactions, boolean will be set to true
-    function approveTransfer(address _from, uint _transactionId) public onlyAdmin {
+    function approveTransfer(address _from, uint256 _transactionId)
+        public
+        onlyAdmin
+    {
         Transaction memory transaction = transactions[_from][_transactionId];
         require(!transaction.approved, "Transaction was already approved");
         transactions[_from][_transactionId].approved = true;
@@ -112,12 +122,17 @@ contract DBank {
 
     // If the boolean is set to true, the user can then transfer the funds
     function transfer(uint256 _transactionId) public {
-        Transaction memory transaction = transactions[msg.sender][_transactionId];
-        require(transaction.approved == true, "Transaction was not approved yet");
-        address payable _to = transactions[msg.sender][_transactionId].recipient;
+        Transaction memory transaction = transactions[msg.sender][
+            _transactionId
+        ];
+        require(
+            transaction.approved == true,
+            "Transaction was not approved yet"
+        );
+        address payable _to = transactions[msg.sender][_transactionId]
+            .recipient;
         uint256 _amount = transactions[msg.sender][_transactionId].amount;
         _to.transfer(_amount);
         emit transactionSend(msg.sender, _transactionId);
     }
-
 }
