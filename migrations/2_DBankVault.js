@@ -1,6 +1,6 @@
-// const MyContract = artifacts.require("DBankVault");
+const MyContract = artifacts.require("DBankVault");
 
-// module.exports = function(deployer) {
-//   // deployment steps
-//   deployer.deploy(MyContract);
-// };
+module.exports = function(deployer) {
+  // deployment steps
+  deployer.deploy(MyContract);
+};

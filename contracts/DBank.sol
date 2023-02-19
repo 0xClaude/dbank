@@ -25,7 +25,6 @@ contract DBank {
     event adminRemoved(address _addr);
     event blacklistAdded(address _addr);
     event blacklistRemoved(address _addr);
-    event etherSent(uint256 amount, address _to);
     event transferRequested(
         address _from,
         address payable _to,

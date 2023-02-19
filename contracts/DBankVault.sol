@@ -8,7 +8,7 @@ contract DBankVault {
     fallback() external payable {}
 
     event etherWithdrawn(uint256 _amount);
-    event etherSent(uint256 _amount, address _from);
+    event etherSent(address _from, uint256 _amount, address to);
 
     constructor() {
         owner = msg.sender;
@@ -34,7 +34,8 @@ contract DBankVault {
         payable
         onlyOwner
     {
-        _addr.transfer(_amount);
-        emit etherSent(_amount, _addr);
+        (bool sent,) = _addr.call{value: _amount}("");
+        require(sent, "Failed to send Ether");
+        emit etherSent(msg.sender, _amount, _addr);
     }
 }

@@ -19,7 +19,10 @@ const initialState = {
     removeBanAddress: "",
     sendTo: "",
     amount: "",
-    withdrawAmount: 0
+    withdrawAmount: 0,
+    sendAmount: 0,
+    sendAddress: "",
+    addressAmount: 0
 }
 
 const reducer = (state, action) => {
@@ -38,6 +41,12 @@ const reducer = (state, action) => {
             return { ...state, amount: action.payload };
         case "addWithdrawAmount":
             return { ...state, withdrawAmount: action.payload };
+        case "addSendAmount":
+            return { ...state, sendAmount: action.payload };
+        case "addSendAddress":
+            return { ...state, sendAddress: action.payload };
+        case "addAddressAmount":
+            return { ...state, addressAmount: action.payload };
         default:
             throw new Error(`Received: ${action.type}`);
     }
@@ -160,60 +169,94 @@ export default function Main(props) {
         checkBalance();
     }
 
-    const columns = [
-        { field: "id", headerName: "ID", width: 90 },
-        { field: "from", headerName: "From", width: 400 },
-        {
-            field: "to",
-            headerName: "To",
-            width: 400
-        },
-        {
-            field: "Amount",
-            fieldName: "AMOUNT",
-            width: 90
-        },
-        {
-            field: "Approved",
-            fieldName: "APPROVED?",
-            width: 90
+    const sendToContract = async (e) => {
+        const transaction = {
+            from: props.state.address,
+            to: vaultAddress,
+            value: web3.utils.toWei(state.sendAmount),
+            gasPrice: 0
         }
-    ]
+        try {
+            await web3.eth.sendTransaction(transaction, (error, result) => {
+                if (error) { console.log(error); }
+                else {
+                    console.log("Ether sent");
+                    props.dispatch({ type: "setBalance", payload: props.state.balance - state.sendAmount });
+                    props.dispatch({ type: "setContractBalance", payload: Number(props.state.contractBalance) + Number(web3.utils.toWei(state.sendAmount)) });
+                }
+            });
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    const sendToUser = async (e) => {
+        try {
+            await vault.methods.send(web3.utils.toWei(state.addressAmount), state.sendAddress).send({ from: props.state.address });
+            props.dispatch({ type: "setContractBalance", payload: Number(props.state.contractBalance) - Number(web3.utils.toWei(state.addressAmount)) });
+            state.sendAddress === props.state.address && (
+                props.dispatch({ type: "setBalance", payload: Number(props.state.balance) + Number(web3.utils.toWei(state.addressAmount)) })
+            )
+} catch (error) {
+    console.log(error);
+}
+    }
+
+const columns = [
+    { field: "id", headerName: "ID", width: 90 },
+    { field: "from", headerName: "From", width: 400 },
+    {
+        field: "to",
+        headerName: "To",
+        width: 400
+    },
+    {
+        field: "Amount",
+        fieldName: "AMOUNT",
+        width: 90
+    },
+    {
+        field: "Approved",
+        fieldName: "APPROVED?",
+        width: 90
+    }
+]
 
 
 
 
 
-    return (
-        <>
-            <div className={styles.main}>
-                {!props.state.loading && !props.state.connected && <p>Please connect your wallet</p>}
-                {props.state.loading && <p>Please wait ...</p>}
-                {props.state.blacklist && <p className={styles.banned}><RemoveCircleOutlineIcon />You are banned.</p>}
-                {!props.state.loading && !props.state.blacklist && props.state.connected && (
-                    <>
-                        <div className={styles.welcome}>
-                            <div className={styles.topwelcome}>
-                                <Avatar>
-                                    <AdminPanelSettingsIcon />
-                                </Avatar>
-                                {props.state.owner && (
-                                    <p>Welcome, owner</p>
-                                )}
-                                {props.state.admin && !props.state.owner && (
-                                    <p>Welcome, admin</p>
-                                )
-                                }
-                                {props.state.connected && !props.state.admin && !props.state.owner && (
-                                    <p>Welcome to DBank</p>
-                                )}
-                            </div>
+return (
+    <>
+        <div className={styles.main}>
+            {!props.state.loading && !props.state.connected && <p>Please connect your wallet</p>}
+            {props.state.loading && <p>Please wait ...</p>}
+            {props.state.blacklist && <p className={styles.banned}><RemoveCircleOutlineIcon />You are banned.</p>}
+            {!props.state.loading && !props.state.blacklist && props.state.connected && (
+                <>
+                    <div className={styles.welcome}>
+                        <div className={styles.topwelcome}>
+                            <Avatar>
+                                <AdminPanelSettingsIcon />
+                            </Avatar>
+                            {props.state.owner && (
+                                <p>Welcome, owner</p>
+                            )}
+                            {props.state.admin && !props.state.owner && (
+                                <p>Welcome, admin</p>
+                            )
+                            }
+                            {props.state.connected && !props.state.admin && !props.state.owner && (
+                                <p>Welcome to DBank</p>
+                            )}
                         </div>
+                    </div>
+                    <hr className={styles.hr} />
 
-
-                    </>
-                )}
-                {!props.state.loading && !props.state.blacklist && props.state.connected && props.state.owner && (
+                </>
+            )}
+            {!props.state.loading && !props.state.blacklist && props.state.connected && props.state.owner && (
+                <>
                     <div className={styles.topwelcome}>
                         <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
                             <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
@@ -226,8 +269,11 @@ export default function Main(props) {
                             <Button onClick={removeAdmin}>Remove admin</Button>
                         </Box>
                     </div>
-                )}
-                {!props.state.loading && !props.state.blacklist && props.state.connected && props.state.admin || props.state.owner && (
+                    <hr className={styles.hr} />
+                </>
+            )}
+            {!props.state.loading && !props.state.blacklist && props.state.connected && props.state.admin || props.state.owner && (
+                <>
                     <div className={styles.topwelcome}>
                         <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
                             <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
@@ -240,42 +286,66 @@ export default function Main(props) {
                             <Button onClick={removeBan}>Unban user</Button>
                         </Box>
                     </div>
-                )}
-
-
-            </div>
-            {props.state.connected && !props.state.blacklist && (
-                <div className={styles.transaction}>
-                    <h3>Send a transaction</h3>
-                    <TextField label="To" variant="standard" onChange={(e) => dispatch({ type: "addSendTo", payload: e.target.value })} />
-                    <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addAmount", payload: e.target.value })} />
-                    <Button onClick={sendEther}>Send</Button>
-                </div>
+                    <hr />
+                </>
             )}
 
-            {props.state.connected && !props.state.blacklist && props.state.owner && (
-                <div className={styles.transaction}>
-                    <h3>Withdraw from contract</h3>
-                    <h4>Balance: {web3.utils.fromWei(String(props.state.contractBalance))} Ether</h4>
-                    <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addWithdrawAmount", payload: e.target.value })} />
-                    <Button onClick={withdraw}>Withdraw</Button>
-                </div>
-            )}
-            <hr />
+
+        </div>
+        {props.state.connected && !props.state.blacklist && (
             <div className={styles.transaction}>
-                <h3>Transactions</h3>
-                <Box sx={{ height: 400, width: '100%' }}>
-                    <DataGrid
-                        rows={transactionlist}
-                        columns={columns}
-                        pageSize={10}
-                        rowsPerPageOptions={[10]}
-                        checkboxSelection
-                        disableSelectionOnClick
-                        experimentalFeatures={{ newEditingApi: true }}
-                    />
-                </Box>
+                <h3>Send a transaction</h3>
+                <TextField label="To" variant="standard" onChange={(e) => dispatch({ type: "addSendTo", payload: e.target.value })} />
+                <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addAmount", payload: e.target.value })} />
+                <Button onClick={sendEther}>Send</Button>
             </div>
-        </>
-    )
+        )}
+
+        {props.state.connected && !props.state.blacklist && props.state.owner && (
+            <>
+                <div className={styles.transaction}>
+                    <div>
+                        <h4>Balance: {web3.utils.fromWei(String(props.state.contractBalance))} Ether</h4>
+                    </div>
+                </div>
+                <div className={styles.transaction}>
+                    <div>
+                        <h3>Withdraw from contract</h3>
+
+                        <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addWithdrawAmount", payload: e.target.value })} />
+                        <Button onClick={withdraw}>Withdraw</Button>
+                    </div>
+                    <div>
+                        <h3>Send to contract</h3>
+                        <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addSendAmount", payload: e.target.value })} />
+                        <Button onClick={sendToContract}>Send</Button>
+                    </div>
+                </div>
+                <div>
+                    <div className={styles.transaction}>
+                        <h3>Send to Address</h3>
+                        <TextField label="Address" variant="standard" onChange={(e) => dispatch({ type: "addSendAddress", payload: e.target.value })} />
+                        <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addAddressAmount", payload: e.target.value })} />
+                        <Button onClick={sendToUser}>Send to user</Button>
+                    </div>
+                </div>
+            </>
+        )}
+        <hr />
+        <div className={styles.transactionlist}>
+            <h3>Transactions</h3>
+            <Box sx={{ height: 400, width: '100%' }}>
+                <DataGrid
+                    rows={transactionlist}
+                    columns={columns}
+                    pageSize={10}
+                    rowsPerPageOptions={[10]}
+                    checkboxSelection
+                    disableSelectionOnClick
+                    experimentalFeatures={{ newEditingApi: true }}
+                />
+            </Box>
+        </div>
+    </>
+)
 }
