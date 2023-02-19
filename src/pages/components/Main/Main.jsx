@@ -102,7 +102,7 @@ export default function Main(props) {
 
 
     const checkBalance = async () => {
-        props.state.address !== undefined && props.dispatch({ type: "setBalance", payload: web3.utils.fromWei(await web3.eth.getBalance(props.state.address)) });
+        props.state.address !== undefined && props.state.address !== null && props.dispatch({ type: "setBalance", payload: web3.utils.fromWei(await web3.eth.getBalance(props.state.address)) });
     };
 
     const checkContractBalance = async () => {
@@ -197,155 +197,158 @@ export default function Main(props) {
             state.sendAddress === props.state.address && (
                 props.dispatch({ type: "setBalance", payload: Number(props.state.balance) + Number(web3.utils.toWei(state.addressAmount)) })
             )
-} catch (error) {
-    console.log(error);
-}
+        } catch (error) {
+            console.log(error);
+        }
     }
 
-const columns = [
-    { field: "id", headerName: "ID", width: 90 },
-    { field: "from", headerName: "From", width: 400 },
-    {
-        field: "to",
-        headerName: "To",
-        width: 400
-    },
-    {
-        field: "Amount",
-        fieldName: "AMOUNT",
-        width: 90
-    },
-    {
-        field: "Approved",
-        fieldName: "APPROVED?",
-        width: 90
-    }
-]
+    const columns = [
+        { field: "id", headerName: "ID", width: 90 },
+        { field: "from", headerName: "From", width: 400 },
+        {
+            field: "to",
+            headerName: "To",
+            width: 400
+        },
+        {
+            field: "Amount",
+            fieldName: "AMOUNT",
+            width: 90
+        },
+        {
+            field: "Approved",
+            fieldName: "APPROVED?",
+            width: 90
+        }
+    ]
 
 
 
 
 
-return (
-    <>
-        <div className={styles.main}>
-            {!props.state.loading && !props.state.connected && <p>Please connect your wallet</p>}
-            {props.state.loading && <p>Please wait ...</p>}
-            {props.state.blacklist && <p className={styles.banned}><RemoveCircleOutlineIcon />You are banned.</p>}
-            {!props.state.loading && !props.state.blacklist && props.state.connected && (
-                <>
-                    <div className={styles.welcome}>
+    return (
+        <>
+            <div className={styles.main}>
+                {!props.state.loading && !props.state.connected && <p>Please connect your wallet</p>}
+                {props.state.loading && <p>Please wait ...</p>}
+                {props.state.blacklist && <p className={styles.banned}><RemoveCircleOutlineIcon />You are banned.</p>}
+                {!props.state.loading && !props.state.blacklist && props.state.connected && (
+                    <>
+                        <div className={styles.welcome}>
+                            <div className={styles.topwelcome}>
+                                <Avatar>
+                                    <AdminPanelSettingsIcon />
+                                </Avatar>
+                                {props.state.owner && (
+                                    <p>Welcome, owner</p>
+                                )}
+                                {props.state.admin && !props.state.owner && (
+                                    <p>Welcome, admin</p>
+                                )
+                                }
+                                {props.state.connected && !props.state.admin && !props.state.owner && (
+                                    <p>Welcome to DBank</p>
+                                )}
+                            </div>
+                        </div>
+                    </>
+                )}
+                {!props.state.loading && !props.state.blacklist && props.state.connected && props.state.owner && (
+                    <>
                         <div className={styles.topwelcome}>
-                            <Avatar>
-                                <AdminPanelSettingsIcon />
-                            </Avatar>
-                            {props.state.owner && (
-                                <p>Welcome, owner</p>
-                            )}
-                            {props.state.admin && !props.state.owner && (
-                                <p>Welcome, admin</p>
-                            )
-                            }
-                            {props.state.connected && !props.state.admin && !props.state.owner && (
-                                <p>Welcome to DBank</p>
-                            )}
+                            <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
+                                <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
+                                <TextField label="Address" variant="standard" onChange={(e) => { dispatch({ type: "addAddress", payload: e.target.value }) }} />
+                                <Button onClick={makeAdmin}>Add admin</Button>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
+                                <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
+                                <TextField label="Address" variant="standard" onChange={(e) => dispatch({ type: "addRemoveAddress", payload: e.target.value })} />
+                                <Button onClick={removeAdmin}>Remove admin</Button>
+                            </Box>
+                        </div>
+
+                    </>
+                )}
+                {!props.state.loading && !props.state.blacklist && props.state.connected && props.state.admin || props.state.owner && (
+                    <>
+                        <div className={styles.topwelcome}>
+                            <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
+                                <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
+                                <TextField label="Address" variant="standard" onChange={(e) => dispatch({ type: "addBanAddress", payload: e.target.value })} />
+                                <Button onClick={addBan}>Ban user</Button>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
+                                <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
+                                <TextField label="Address" variant="standard" onChange={(e) => dispatch({ type: "addUnbanAddress", payload: e.target.value })} />
+                                <Button onClick={removeBan}>Unban user</Button>
+                            </Box>
+                        </div>
+                        <hr />
+                    </>
+                )}
+
+
+            </div>
+            {props.state.connected && !props.state.blacklist && (
+                <div className={styles.transaction}>
+                    <h3>Send a transaction</h3>
+                    <TextField label="To" variant="standard" onChange={(e) => dispatch({ type: "addSendTo", payload: e.target.value })} />
+                    <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addAmount", payload: e.target.value })} />
+                    <Button onClick={sendEther}>Send</Button>
+                </div>
+            )}
+
+            {props.state.connected && !props.state.blacklist && props.state.owner && (
+                <>
+                    <div className={styles.transaction}>
+                        <div>
+                            <h4>Balance: {web3.utils.fromWei(String(props.state.contractBalance))} Ether</h4>
                         </div>
                     </div>
-                    <hr className={styles.hr} />
-
-                </>
-            )}
-            {!props.state.loading && !props.state.blacklist && props.state.connected && props.state.owner && (
-                <>
-                    <div className={styles.topwelcome}>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
-                            <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
-                            <TextField label="Address" variant="standard" onChange={(e) => { dispatch({ type: "addAddress", payload: e.target.value }) }} />
-                            <Button onClick={makeAdmin}>Add admin</Button>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
-                            <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
-                            <TextField label="Address" variant="standard" onChange={(e) => dispatch({ type: "addRemoveAddress", payload: e.target.value })} />
-                            <Button onClick={removeAdmin}>Remove admin</Button>
-                        </Box>
-                    </div>
-                    <hr className={styles.hr} />
-                </>
-            )}
-            {!props.state.loading && !props.state.blacklist && props.state.connected && props.state.admin || props.state.owner && (
-                <>
-                    <div className={styles.topwelcome}>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
-                            <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
-                            <TextField label="Address" variant="standard" onChange={(e) => dispatch({ type: "addBanAddress", payload: e.target.value })} />
-                            <Button onClick={addBan}>Ban user</Button>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
-                            <AccountCircle sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
-                            <TextField label="Address" variant="standard" onChange={(e) => dispatch({ type: "addUnbanAddress", payload: e.target.value })} />
-                            <Button onClick={removeBan}>Unban user</Button>
-                        </Box>
-                    </div>
-                    <hr />
-                </>
-            )}
-
-
-        </div>
-        {props.state.connected && !props.state.blacklist && (
-            <div className={styles.transaction}>
-                <h3>Send a transaction</h3>
-                <TextField label="To" variant="standard" onChange={(e) => dispatch({ type: "addSendTo", payload: e.target.value })} />
-                <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addAmount", payload: e.target.value })} />
-                <Button onClick={sendEther}>Send</Button>
-            </div>
-        )}
-
-        {props.state.connected && !props.state.blacklist && props.state.owner && (
-            <>
-                <div className={styles.transaction}>
-                    <div>
-                        <h4>Balance: {web3.utils.fromWei(String(props.state.contractBalance))} Ether</h4>
-                    </div>
-                </div>
-                <div className={styles.transaction}>
-                    <div>
-                        <h3>Withdraw from contract</h3>
-
-                        <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addWithdrawAmount", payload: e.target.value })} />
-                        <Button onClick={withdraw}>Withdraw</Button>
-                    </div>
-                    <div>
-                        <h3>Send to contract</h3>
-                        <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addSendAmount", payload: e.target.value })} />
-                        <Button onClick={sendToContract}>Send</Button>
-                    </div>
-                </div>
-                <div>
                     <div className={styles.transaction}>
-                        <h3>Send to Address</h3>
-                        <TextField label="Address" variant="standard" onChange={(e) => dispatch({ type: "addSendAddress", payload: e.target.value })} />
-                        <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addAddressAmount", payload: e.target.value })} />
-                        <Button onClick={sendToUser}>Send to user</Button>
+                        <div>
+                            <h3>Withdraw from contract</h3>
+
+                            <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addWithdrawAmount", payload: e.target.value })} />
+                            <Button onClick={withdraw}>Withdraw</Button>
+                        </div>
+                        <div>
+                            <h3>Send to contract</h3>
+                            <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addSendAmount", payload: e.target.value })} />
+                            <Button onClick={sendToContract}>Send</Button>
+                        </div>
                     </div>
-                </div>
-            </>
-        )}
-        <hr />
-        <div className={styles.transactionlist}>
-            <h3>Transactions</h3>
-            <Box sx={{ height: 400, width: '100%' }}>
-                <DataGrid
-                    rows={transactionlist}
-                    columns={columns}
-                    pageSize={10}
-                    rowsPerPageOptions={[10]}
-                    checkboxSelection
-                    disableSelectionOnClick
-                    experimentalFeatures={{ newEditingApi: true }}
-                />
-            </Box>
-        </div>
-    </>
-)
+                    <div>
+                        <div className={styles.transaction}>
+                            <h3>Send to Address</h3>
+                            <TextField label="Address" variant="standard" onChange={(e) => dispatch({ type: "addSendAddress", payload: e.target.value })} />
+                            <TextField label="Amount" variant="standard" onChange={(e) => dispatch({ type: "addAddressAmount", payload: e.target.value })} />
+                            <Button onClick={sendToUser}>Send to user</Button>
+                        </div>
+                    </div>
+                </>
+            )}
+            {props.state.connected && !props.state.blacklist && (
+                <>
+                    <hr />
+                    <div className={styles.transactionlist}>
+                        <h3>Transactions</h3>
+                        <Box sx={{ height: 400, width: '100%' }}>
+                            <DataGrid
+                                rows={transactionlist}
+                                columns={columns}
+                                pageSize={10}
+                                rowsPerPageOptions={[10]}
+                                checkboxSelection
+                                disableSelectionOnClick
+                                experimentalFeatures={{ newEditingApi: true }}
+                            />
+                        </Box>
+                    </div>
+                </>
+            )}
+
+        </>
+    )
 }

@@ -17,7 +17,7 @@ import Web3 from "web3";
 const initialState = {
   loading: false,
   connected: false,
-  address: undefined,
+  address: null,
   balance: 0,
   contractBalance: 0,
   owner: false,
