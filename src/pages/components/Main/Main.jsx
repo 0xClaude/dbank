@@ -199,12 +199,12 @@ export default function Main(props) {
     }
 
     const columns = [
-        { field: "id", headerName: "ID", width: 90 },
-        { field: "from", fieldName: "From", width: 500 },
+        { field: "id", headerName: "ID", width: 30 },
+        { field: "from", fieldName: "From", width: 300 },
         {
             field: "to",
             fieldName: "To",
-            width: 500
+            width: 300
         },
         {
             field: "amount",
@@ -265,7 +265,7 @@ export default function Main(props) {
 
                     </>
                 )}
-                {!props.state.loading && !props.state.blacklist && props.state.connected && props.state.admin || props.state.owner && (
+                {!props.state.loading && !props.state.blacklist && props.state.connected && props.state.owner || props.state.admin && (
                     <>
                         <div className={styles.topwelcome}>
                             <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>

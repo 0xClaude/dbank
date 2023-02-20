@@ -80,7 +80,7 @@ export default function App() {
   const reduceProps = { state, dispatch, web3state, web3dispatch, transactionlist };
 
 
-  const web3 = new Web3(new Web3.providers.HttpProvider("http://127.0.0.1:7545"));
+  const web3 = new Web3(new Web3.providers.WebsocketProvider("ws://127.0.0.1:7545"));
   const contract = new web3.eth.Contract(ABI, contractAddress);
 
   const theme = useMemo(() => createTheme({
@@ -104,9 +104,15 @@ export default function App() {
 
 
   const checkTransactions = async () => {
+    // Emptying the state for the transactions
     setTransactionlist([]);
+    // Using a temporary array to prevent async problems
     const newTransactionList = [];
+    // This shows all the accounts, so we only do this if the logged in user is admin
+    //const accounts = state.owner ? await web3.eth.getAccounts() : [state.address];
     const accounts = await web3.eth.getAccounts();
+    console.log(accounts);
+    // Looping through it manually to avoid issues with .map() or .forEach()
     for (let i = 0; i < accounts.length; i++) {
       const transactions = await contract.methods.checkTransfers(accounts[i]).call();
       if (transactions.length > 0) {
@@ -119,17 +125,22 @@ export default function App() {
             amount: web3.utils.fromWei(amount),
             approved
           }
+          // Pushing into the temporary array
           newTransactionList.push(tx);
         }
       }
     }
+    // Setting the state with the temporary array
     setTransactionlist(newTransactionList);
   }
 
 
   useEffect(() => {
-
     checkTransactions();
+  }, [state.address])
+
+
+  useEffect(() => {
     connectWallet();
 
     ethereum.on("accountsChanged", (accounts) => {
