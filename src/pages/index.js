@@ -17,7 +17,7 @@ import Web3 from "web3";
 const initialState = {
   loading: false,
   connected: false,
-  address: null,
+  address: "0x0",
   balance: 0,
   contractBalance: 0,
   owner: false,
@@ -66,7 +66,7 @@ const web3reducer = (state, action) => {
     case "setVault":
       return { ...state, vault: action.payload };
     default:
-      throw new Error(`Received ${action.payload}`);
+      throw new Error(`Received ${action.type}`);
   }
 }
 
@@ -104,14 +104,18 @@ export default function App() {
 
 
   const checkTransactions = async () => {
+    if (state.address === "0x0") { return }
     // Emptying the state for the transactions
     setTransactionlist([]);
     // Using a temporary array to prevent async problems
     const newTransactionList = [];
     // This shows all the accounts, so we only do this if the logged in user is admin
     //const accounts = state.owner ? await web3.eth.getAccounts() : [state.address];
-    const accounts = await web3.eth.getAccounts();
-    console.log(accounts);
+    let accounts = [];
+    if (!state.owner) { accounts = [state.address] }
+    else {
+      accounts = await web3.eth.getAccounts();
+    }
     // Looping through it manually to avoid issues with .map() or .forEach()
     for (let i = 0; i < accounts.length; i++) {
       const transactions = await contract.methods.checkTransfers(accounts[i]).call();
@@ -137,7 +141,7 @@ export default function App() {
 
   useEffect(() => {
     checkTransactions();
-  }, [state.address])
+  }, [state.address, state.owner])
 
 
   useEffect(() => {

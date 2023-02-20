@@ -61,7 +61,7 @@ export default function Main(props) {
     const [state, dispatch] = useReducer(reducer, initialState)
 
     const checkBan = async () => {
-        if (props.state.address !== undefined && props.state.address !== null) {
+        if (props.state.address !== undefined && props.state.address !== "0x0") {
 
             await contract.methods.isBlacklisted(props.state.address).call() ? props.dispatch({ type: "setBlacklist", payload: true }) : props.dispatch({ type: "setBlacklist", payload: false });
 
@@ -98,7 +98,7 @@ export default function Main(props) {
     }, [props.state.connected]);
 
     const checkBalance = async () => {
-        props.state.address !== undefined && props.state.address !== null && props.dispatch({ type: "setBalance", payload: web3.utils.fromWei(await web3.eth.getBalance(props.state.address)) });
+        props.state.address !== undefined && props.state.address !== "0x0" && props.dispatch({ type: "setBalance", payload: web3.utils.fromWei(await web3.eth.getBalance(props.state.address)) });
     };
 
     const checkContractBalance = async () => {
