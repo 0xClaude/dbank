@@ -23,7 +23,4 @@ Some features are not implemented yet:
 - User: submit approved transactions
 - Optional: user can cancel their requested transactions
 
-Some bugs need fixing:
-- Users can only see their own transaction - right now, they see all transactions
-
 Date: 20/02/2023
