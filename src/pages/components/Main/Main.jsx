@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer } from "react";
 import styles from "./Main.module.css";
 
 import AccountCircle from '@mui/icons-material/AccountCircle';
@@ -58,8 +58,7 @@ const vault = new web3.eth.Contract(ABI2, vaultAddress);
 
 export default function Main(props) {
 
-    const [state, dispatch] = useReducer(reducer, initialState);
-    const [transactionlist, setTransactionlist] = useState([]);
+    const [state, dispatch] = useReducer(reducer, initialState)
 
     const checkBan = async () => {
         if (props.state.address !== undefined && props.state.address !== null) {
@@ -89,7 +88,6 @@ export default function Main(props) {
         }).on("error", console.error);
 
         contract.events.transferRequested().on("data", (event) => {
-            //allAccounts();
         })
         // Cleanup
         return () => {
@@ -98,8 +96,6 @@ export default function Main(props) {
 
         }
     }, [props.state.connected]);
-
-
 
     const checkBalance = async () => {
         props.state.address !== undefined && props.state.address !== null && props.dispatch({ type: "setBalance", payload: web3.utils.fromWei(await web3.eth.getBalance(props.state.address)) });
@@ -150,7 +146,7 @@ export default function Main(props) {
 
     const sendEther = async (e) => {
         try {
-            await contract.methods.requestTransfer(state.sendTo, web3.utils.toWei(state.amount, "ether")).send({ from: props.state.address });
+            await contract.methods.requestTransfer(state.sendTo, web3.utils.toWei(state.amount, "ether")).send({ from: props.state.address, gas: "1000000" });
         } catch (error) {
             console.log(error);
         }
@@ -204,24 +200,23 @@ export default function Main(props) {
 
     const columns = [
         { field: "id", headerName: "ID", width: 90 },
-        { field: "from", headerName: "From", width: 400 },
+        { field: "from", fieldName: "From", width: 500 },
         {
             field: "to",
-            headerName: "To",
-            width: 400
+            fieldName: "To",
+            width: 500
         },
         {
-            field: "Amount",
+            field: "amount",
             fieldName: "AMOUNT",
             width: 90
         },
         {
-            field: "Approved",
+            field: "approved",
             fieldName: "APPROVED?",
             width: 90
         }
     ]
-
 
 
 
@@ -336,7 +331,7 @@ export default function Main(props) {
                         <h3>Transactions</h3>
                         <Box sx={{ height: 400, width: '100%' }}>
                             <DataGrid
-                                rows={transactionlist}
+                                rows={props.transactionlist}
                                 columns={columns}
                                 pageSize={10}
                                 rowsPerPageOptions={[10]}

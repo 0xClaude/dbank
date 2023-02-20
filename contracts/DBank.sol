@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 contract DBank {
     // State variable for the contract owner
     address public owner;
+    uint256 public transactionCount;
 
     // Mappings for admins and blacklisted users
     mapping(address => bool) public admin;
@@ -11,6 +12,7 @@ contract DBank {
 
     // Struct for the transactions
     struct Transaction {
+        uint256 id;
         address payable recipient;
         uint256 amount;
         bool approved;
@@ -26,6 +28,7 @@ contract DBank {
     event blacklistAdded(address _addr);
     event blacklistRemoved(address _addr);
     event transferRequested(
+        uint256 _id,
         address _from,
         address payable _to,
         uint256 _amount
@@ -104,8 +107,11 @@ contract DBank {
     // User wants to transfer money, the boolean is set to "false" initially
     function requestTransfer(address payable _to, uint256 _amount) public {
         require(msg.sender.balance >= _amount, "Not enough ether");
-        transactions[msg.sender].push(Transaction(_to, _amount, false));
-        emit transferRequested(msg.sender, _to, _amount);
+        transactions[msg.sender].push(
+            Transaction(transactionCount, _to, _amount, false)
+        );
+        emit transferRequested(transactionCount, msg.sender, _to, _amount);
+        transactionCount++;
     }
 
     // Admins can approve transactions, boolean will be set to true

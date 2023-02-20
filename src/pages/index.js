@@ -74,11 +74,13 @@ export default function App() {
 
   const [state, dispatch] = useReducer(reducer, initialState);
   const [web3state, web3dispatch] = useReducer(web3reducer, webstate);
-  const reduceProps = { state, dispatch, web3state, web3dispatch };
+  const [transactionlist, setTransactionlist] = useState([]);
 
-  const [transactionlist, setTransactionList] = useState([]);
 
-  const web3 = new Web3(new Web3.providers.WebsocketProvider("ws://127.0.0.1:7545"));
+  const reduceProps = { state, dispatch, web3state, web3dispatch, transactionlist };
+
+
+  const web3 = new Web3(new Web3.providers.HttpProvider("http://127.0.0.1:7545"));
   const contract = new web3.eth.Contract(ABI, contractAddress);
 
   const theme = useMemo(() => createTheme({
@@ -88,26 +90,6 @@ export default function App() {
   }),
     [state.dark],
   );
-
-  const allAccounts = async () => {
-
-    setTransactionList([]);
-
-    try {
-      const accounts = await web3.eth.getAccounts();
-      accounts.map((item, index) => {
-        console.log(`Checking for account ${item}`)
-        contract.methods.checkTransfers(item).call().then(result => {
-          result.length > 0 && (
-            setTransactionList(previous => [...previous, result])
-          );
-        })
-      });
-      console.log(transactionlist);
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
 
   const connectWallet = async () => {
@@ -120,10 +102,35 @@ export default function App() {
     dispatch({ type: "setLoading", payload: false });
   }
 
+
+  const checkTransactions = async () => {
+    setTransactionlist([]);
+    const newTransactionList = [];
+    const accounts = await web3.eth.getAccounts();
+    for (let i = 0; i < accounts.length; i++) {
+      const transactions = await contract.methods.checkTransfers(accounts[i]).call();
+      if (transactions.length > 0) {
+        for (let j = 0; j < transactions.length; j++) {
+          const [id, recipient, amount, approved] = transactions[j];
+          const tx = {
+            id,
+            from: accounts[i],
+            to: recipient,
+            amount: web3.utils.fromWei(amount),
+            approved
+          }
+          newTransactionList.push(tx);
+        }
+      }
+    }
+    setTransactionlist(newTransactionList);
+  }
+
+
   useEffect(() => {
 
+    checkTransactions();
     connectWallet();
-    allAccounts();
 
     ethereum.on("accountsChanged", (accounts) => {
       if (accounts.length > 0) {
