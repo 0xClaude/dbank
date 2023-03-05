@@ -79,7 +79,7 @@ contract DBank {
         return transactions[_from];
     }
 
-    // Admin related functions
+    // Adding and removing admins - only the owner can do so
     function addAdmin(address _addr) public onlyOwner {
         require(admin[_addr] == false, "User is already admin");
         admin[_addr] = true;
@@ -92,6 +92,8 @@ contract DBank {
         emit adminRemoved(_addr);
     }
 
+    // Adding and removing blacklisted people
+    // Only the owner and admins can do this
     function addBlacklist(address _addr) public onlyAdmin {
         require(blacklist[_addr] == false, "User is already blacklisted");
         blacklist[_addr] = true;

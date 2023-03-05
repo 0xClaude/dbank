@@ -10,18 +10,20 @@ export default function Navbar() {
     const { state, dispatch } = useContext(Context);
     const [button, setButton] = useState(null);
 
-    const connectToBlockchain = async () => {
+    // Helper function to get all the accounts in the wallet
+    const getAllAccounts = async () => {
         if (window.ethereum) {
             const connection = await window.ethereum.request({ method: "eth_requestAccounts" });
             return connection;
         }
     }
 
+    // Upon clicking the "Connect" button, try to connect wallet
     const connection = async () => {
         dispatch({ type: "setLoading", payload: true });
         dispatch({ type: "setConnected", payload: true });
         try {
-            const accounts = await connectToBlockchain();
+            const accounts = await getAllAccounts();
             if (accounts.length > 0) {
                 dispatch({ type: "setUserWalletAddress", payload: accounts[0] });
             } else {
@@ -35,6 +37,7 @@ export default function Navbar() {
         dispatch({ type: "setLoading", payload: false });
     };
 
+    // When disconnecting the wallet, change the state for all fields
     const disconnect = () => {
         dispatch({ type: "setConnected", payload: false });
         dispatch({ type: "setUserWalletAddress", payload: null });
@@ -44,27 +47,25 @@ export default function Navbar() {
         dispatch({ type: "setUserIsOwner", payload: false });
     };
 
-    const showBalance = () => {
-        if (state.connected && state.address && !state.blacklist) {
-            return `<p>Balance: ${shortBalance(state.balance)}</p>`;
-        }
-    }
-
-    const shorter = (addrStr) => {
+    // Shorten the address to only show the first and last four letters
+    const shorterAddress = (addrStr) => {
         if (addrStr.length <= 8) {
             return addrStr;
         }
         return addrStr.slice(0, 4) + "..." + addrStr.slice(-4);
     };
 
-    const shortBalance = (amount) => {
+    // Show a smaller balancer
+    const formatBalance = (amount) => {
         return Number(amount).toFixed(2);
     }
 
+    // Change the theme to/from dark
     const changeTheme = () => {
         dispatch({ type: "setDark", payload: !state.dark });
     };
 
+    // Upon changing the wallet, change the button, too.
     useEffect(() => {
         if (!state.isConnected) {
             setButton(<span onClick={connection} className={styles.login}>Connect Wallet</span>);
@@ -76,7 +77,7 @@ export default function Navbar() {
             setButton(<p>You are blacklisted</p>);
         }
         else {
-            setButton(<span onClick={disconnect} className={styles.login}>{shorter(state.userWalletAddress)}</span>);
+            setButton(<span onClick={disconnect} className={styles.login}>{shorterAddress(state.userWalletAddress)}</span>);
         }
     }, [state.userWalletAddress]);
 
@@ -87,7 +88,7 @@ export default function Navbar() {
                 <h3><span className={styles.highlight}>De</span>centralised Bank</h3>
             </div>
             <div className={styles.rightbar}>
-                {showBalance()}
+                {!state.loading && state.isConnected && !state.userIsBlacklisted && formatBalance(state.web3Interface.utils.fromWei(String(state.userWalletBalance)))} Eth
                 <div className={styles.colormode}>
                     <NightsStayIcon color="primary" />
                     <Switch onChange={changeTheme} />

@@ -83,7 +83,7 @@ export default function App() {
     dispatch({ type: "setVaultInterface", payload: newVaultInface });
   }
 
-  // Connecting wallet
+  // Automatically connecting wallet when the component renders
   const connectWallet = async () => {
     dispatch({ type: "setLoading", payload: true });
     dispatch({ type: "setConnected", payload: false });
@@ -105,13 +105,25 @@ export default function App() {
     return await state.contractInterface.methods.isOwner(address).call();
   }
 
+  // Check the user's funds
+  const checkFunds = async () => {
+    // Only do so if the user has connected his wallet
+    if (state.userWalletAddress) {
+      try {
+        const funds = await state.web3Interface.eth.getBalance(state.userWalletAddress);
+        dispatch({ type: "setUserWalletBalance", payload: funds });
+      } catch (error) {
+        console.log(error);
+      } finally {
+      }
+    }
+  }
 
   // Check if the user is admin or owner and set the state accordingly
   const checkRights = async () => {
     dispatch({ type: "setUserIsOwner", payload: false });
     dispatch({ type: "setUserIsAdmin", payload: false });
     if (state.userWalletAddress) {
-      console.log(state.userWalletAddress);
       if (await isUserOwner(state.userWalletAddress)) {
         dispatch({ type: "setUserIsOwner", payload: true });
       }
@@ -145,15 +157,17 @@ export default function App() {
   }, []);
 
   // Whenever the user changes his wallet, check his rights for the dApp
+  // We also check his funds and update the state
   useEffect(() => {
     checkRights();
+    checkFunds();
   }, [state.userWalletAddress])
 
   // Memoising state and dispatch to avoid unnecessary rendering
   const reduceProps = useMemo(() => {
     return { state, dispatch }
   }, [state, dispatch]);
-  
+
   // Memoising the theme to avoid unneccessary rendering
   const theme = useMemo(() => createTheme({
     palette: {
