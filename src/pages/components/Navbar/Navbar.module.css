@@ -1,44 +1,39 @@
 .navbar {
-    position: sticky;
-    justify-content: space-between;
-    align-items: center; 
-    display: flex;
-    margin: 0;
-    padding: 0.5rem 1rem;
-    box-shadow: 0 4px 5px 0 rgba(0, 0, 0, 0.25);
+	position: sticky;
+	top: 0;
+	justify-content: space-between;
+	align-items: center;
+	display: flex;
+	margin: 0;
+	padding: 0.5rem 1rem;
+	box-shadow: 0 4px 5px 0 rgba(0, 0, 0, 0.25);
+	backdrop-filter: blur(1rem);
 }
 
 .rightbar {
-    display: flex;
-    justify-content: space-around;
-    gap: 2rem;
-    align-items: center;
+	display: flex;
+	justify-content: space-around;
+	gap: 2rem;
+	align-items: center;
 }
 
 .colormode {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.search Box {
-    display: flex;
-    align-items: center;
-    align-self: center;
-    
+	display: flex;
+	justify-content: center;
+	align-items: center;
 }
 
 .highlight {
-    color: #1976D1;
+	color: #1976d1;
 }
 
 .login {
-    display: inherit;
-    text-align: right;
-    padding: 1rem;
-    border-radius: 20px;
-    font-weight: bold;
-    background-color: #1976D1;
-    color: #FFFFFF;
-    cursor: pointer;
+	display: inherit;
+	text-align: right;
+	padding: 1rem;
+	border-radius: 20px;
+	font-weight: bold;
+	background-color: #1976d1;
+	color: #ffffff;
+	cursor: pointer;
 }

@@ -1,88 +1,160 @@
-import '@fontsource/roboto/300.css';
-import '@fontsource/roboto/400.css';
-import '@fontsource/roboto/500.css';
-import '@fontsource/roboto/700.css';
+import "@fontsource/roboto";
 import { CssBaseline } from "@mui/material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import Head from "next/head";
-import { useEffect, useMemo, useReducer, useState } from "react";
-import Main from "./components/Main/Main";
-import Navbar from "./components/Navbar/Navbar";
 
-import { ABI, ABI2, contractAddress, vaultAddress } from "@/pages/web3/contract";
+import { createContext, useEffect, useMemo, useReducer } from "react";
+import Navbar from "./components/Navbar/Navbar";
+import Start from "./components/Start/Start";
+
+import { contractABI, contractAddress, vaultABI, vaultAddress } from "@/pages/web3/contract";
 import Web3 from "web3";
 
-// Initializing the state and the useReducer hook
+// We are using useReducer to manage the many states accross the app.
+// We also use useContext to pass the props around
 
 const initialState = {
+  dark: false,
   loading: false,
-  connected: false,
-  address: "0x0",
-  balance: 0,
-  contractBalance: 0,
-  owner: false,
-  admin: false,
-  blacklist: false,
-  dark: false
+  isConnected: false,
+  userWalletAddress: null,
+  userWalletBalance: 0,
+  userIsOwner: false,
+  userIsAdmin: false,
+  userIsBlacklisted: false,
+  web3Interface: null,
+  contractAddress: null,
+  contractInterface: null,
+  vaultAddress: null,
+  vaultInterface: null
 }
 
 const reducer = (state, action) => {
   switch (action.type) {
+    case "setDark":
+      return { ...state, dark: action.payload };
     case "setLoading":
       return { ...state, loading: action.payload };
     case "setConnected":
-      return { ...state, connected: action.payload };
-    case "setAddress":
-      return { ...state, address: action.payload };
-    case "setBalance":
-      return { ...state, balance: action.payload };
-    case "setContractBalance":
-      return { ...state, contractBalance: action.payload };
-    case "setOwner":
-      return { ...state, owner: action.payload };
-    case "setAdmin":
-      return { ...state, admin: action.payload };
-    case "setBlacklist":
-      return { ...state, blacklist: action.payload };
-    case "setDark":
-      return { ...state, dark: action.payload };
+      return { ...state, isConnected: action.payload };
+    case "setUserWalletAddress":
+      return { ...state, userWalletAddress: action.payload };
+    case "setUserWalletBalance":
+      return { ...state, userWalletBalance: action.payload };
+    case "setUserIsOwner":
+      return { ...state, userIsOwner: action.payload };
+    case "setUserIsAdmin":
+      return { ...state, userIsAdmin: action.payload };
+    case "setUserIsBlacklisted":
+      return { ...state, userIsBlacklisted: action.payload };
+    case "setWeb3Interface":
+      return { ...state, web3Interface: action.payload };
+    case "setContractAddress":
+      return { ...state, contractAddress: action.payload };
+    case "setContractInterface":
+      return { ...state, contractInterface: action.payload };
+    case "setVaultAddress":
+      return { ...state, vaultAddress: action.payload };
+    case "setVaultInterface":
+      return { ...state, vaultInterface: action.payload };
     default:
       throw new Error(`Received: ${action.type}`);
   }
 }
 
-const webstate = {
-  web3: undefined,
-  contract: undefined,
-  vault: undefined,
-}
-
-const web3reducer = (state, action) => {
-  switch (action.type) {
-    case "setWeb3":
-      return { ...state, web3: action.payload };
-    case "setContract":
-      return { ...state, contract: action.payload };
-    case "setVault":
-      return { ...state, vault: action.payload };
-    default:
-      throw new Error(`Received ${action.type}`);
-  }
-}
+export const Context = createContext();
 
 export default function App() {
 
   const [state, dispatch] = useReducer(reducer, initialState);
-  const [web3state, web3dispatch] = useReducer(web3reducer, webstate);
-  const [transactionlist, setTransactionlist] = useState([]);
+
+  // Connect to the blockchain and store interfaces in the state
+  const connect = async () => {
+    dispatch({ type: "setContractAddress", payload: contractAddress });
+    dispatch({ type: "setVaultAddress", payload: vaultAddress });
+
+    const web3 = new Web3("ws://127.0.0.1:7545");
+    dispatch({ type: "setWeb3Interface", payload: web3 });
+
+    const newContractInterface = new web3.eth.Contract(contractABI, contractAddress);
+    dispatch({ type: "setContractInterface", payload: newContractInterface });
+
+    const newVaultInface = new web3.eth.Contract(vaultABI, vaultAddress);
+    dispatch({ type: "setVaultInterface", payload: newVaultInface });
+  }
+
+  // Connecting wallet
+  const connectWallet = async () => {
+    dispatch({ type: "setLoading", payload: true });
+    dispatch({ type: "setConnected", payload: false });
+    const walletAccounts = await window.ethereum.request({ method: "eth_accounts" });
+    if (walletAccounts.length > 0) {
+      dispatch({ type: "setUserWalletAddress", payload: walletAccounts[0] });
+      dispatch({ type: "setConnected", payload: true });
+    }
+    dispatch({ type: "setLoading", payload: false });
+  }
+
+  // Check if address is admin for the contract
+  const isUserAdmin = async (address) => {
+    return await state.contractInterface.methods.isAdmin(address).call();
+  }
+
+  // Check if the address is the owner of the contract
+  const isUserOwner = async (address) => {
+    return await state.contractInterface.methods.isOwner(address).call();
+  }
 
 
-  const reduceProps = { state, dispatch, web3state, web3dispatch, transactionlist };
+  // Check if the user is admin or owner and set the state accordingly
+  const checkRights = async () => {
+    dispatch({ type: "setUserIsOwner", payload: false });
+    dispatch({ type: "setUserIsAdmin", payload: false });
+    if (state.userWalletAddress) {
+      console.log(state.userWalletAddress);
+      if (await isUserOwner(state.userWalletAddress)) {
+        dispatch({ type: "setUserIsOwner", payload: true });
+      }
+      if (await isUserAdmin(state.userWalletAddress)) {
+        dispatch({ type: "setUserIsAdmin", payload: true });
+      }
+    }
+  }
 
+  // When component mounts, we should connect to the blockchain
+  // Try to connect the wallet, and add a listener when the user changes wallets
 
-  const web3 = new Web3(new Web3.providers.WebsocketProvider("ws://127.0.0.1:7545"));
-  const contract = new web3.eth.Contract(ABI, contractAddress);
+  useEffect(() => {
+    dispatch({ type: "setLoading", payload: true });
+    connect();
+    connectWallet();
 
+    window.ethereum.on("accountsChanged", (walletAccounts) => {
+      if (walletAccounts.length > 0) {
+        console.log(`Changed account into ${walletAccounts}`)
+        dispatch({ type: "setConnected", payload: true });
+        dispatch({ type: "setUserWalletAddress", payload: walletAccounts[0] });
+        checkRights();
+      } else {
+        dispatch({ type: "setConnected", payload: false });
+        dispatch({ type: "setUserWalletAddress", payload: null });
+      }
+    });
+
+    dispatch({ type: "setLoading", payload: false });
+  }, []);
+
+  // Whenever the user changes his wallet, check his rights for the dApp
+  useEffect(() => {
+    checkRights();
+  }, [state.userWalletAddress])
+
+  // Memoising state and dispatch to avoid unnecessary rendering
+  const reduceProps = useMemo(() => {
+    return { state, dispatch }
+  }, [state, dispatch]);
+  
+  // Memoising the theme to avoid unneccessary rendering
   const theme = useMemo(() => createTheme({
     palette: {
       mode: state.dark ? 'dark' : 'light',
@@ -91,71 +163,6 @@ export default function App() {
     [state.dark],
   );
 
-
-  const connectWallet = async () => {
-    dispatch({ type: "setLoading", payload: true });
-    const account = await ethereum.request({ method: "eth_accounts" });
-    if (account.length > 0) {
-      dispatch({ type: "setAddress", payload: account[0] });
-      dispatch({ type: "setConnected", payload: true });
-    }
-    dispatch({ type: "setLoading", payload: false });
-  }
-
-
-  const checkTransactions = async () => {
-    if (state.address === "0x0") { return }
-    // Emptying the state for the transactions
-    setTransactionlist([]);
-    // Using a temporary array to prevent async problems
-    const newTransactionList = [];
-    // This shows all the accounts, so we only do this if the logged in user is admin
-    //const accounts = state.owner ? await web3.eth.getAccounts() : [state.address];
-    let accounts = [];
-    if (!state.owner) { accounts = [state.address] }
-    else {
-      accounts = await web3.eth.getAccounts();
-    }
-    // Looping through it manually to avoid issues with .map() or .forEach()
-    for (let i = 0; i < accounts.length; i++) {
-      const transactions = await contract.methods.checkTransfers(accounts[i]).call();
-      if (transactions.length > 0) {
-        for (let j = 0; j < transactions.length; j++) {
-          const [id, recipient, amount, approved] = transactions[j];
-          const tx = {
-            id,
-            from: accounts[i],
-            to: recipient,
-            amount: web3.utils.fromWei(amount),
-            approved
-          }
-          // Pushing into the temporary array
-          newTransactionList.push(tx);
-        }
-      }
-    }
-    // Setting the state with the temporary array
-    setTransactionlist(newTransactionList);
-  }
-
-
-  useEffect(() => {
-    checkTransactions();
-  }, [state.address, state.owner])
-
-
-  useEffect(() => {
-    connectWallet();
-
-    ethereum.on("accountsChanged", (accounts) => {
-      if (accounts.length > 0) {
-        dispatch({ type: "setConnected", payload: true });
-        dispatch({ type: "setAddress", payload: accounts[0] });
-      }
-    });
-
-  }, []);
-
   return (
     <>
       <ThemeProvider theme={theme}>
@@ -163,8 +170,10 @@ export default function App() {
         <Head>
           <title>DBank3</title>
         </Head>
-        <Navbar {...reduceProps} />
-        <Main {...reduceProps} />
+        <Context.Provider value={reduceProps}>
+          <Navbar />
+          <Start />
+        </Context.Provider>
       </ThemeProvider>
     </>
   )

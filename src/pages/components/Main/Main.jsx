@@ -7,21 +7,19 @@ import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import { DataGrid } from '@mui/x-data-grid';
 import { Avatar, Button, TextField } from "@mui/material";
 import Box from '@mui/material/Box';
-
-import { ABI, ABI2, contractAddress, vaultAddress } from "@/pages/web3/contract";
-import Web3 from "web3";
+import WelcomeScreen from "../Screens/Screens";
 
 const initialState = {
-    address: "",
-    removeAddress: "",
-    banAddress: "",
-    unbanAddress: "",
-    removeBanAddress: "",
-    sendTo: "",
-    amount: "",
+    address: null,
+    removeAddress: null,
+    banAddress: null,
+    unbanAddress: null,
+    removeBanAddress: null,
+    sendTo: null,
+    amount: null,
     withdrawAmount: 0,
     sendAmount: 0,
-    sendAddress: "",
+    sendAddress: null,
     addressAmount: 0
 }
 
@@ -52,71 +50,56 @@ const reducer = (state, action) => {
     }
 }
 
-const web3 = new Web3(new Web3.providers.WebsocketProvider("ws://127.0.0.1:7545"));
-const contract = new web3.eth.Contract(ABI, contractAddress);
-const vault = new web3.eth.Contract(ABI2, vaultAddress);
+export default function Main({ state, dispatch, transactionlist }) {
 
-export default function Main(props) {
-
-    const [state, dispatch] = useReducer(reducer, initialState)
+    const [mainState, mainDispatch] = useReducer(reducer, initialState)
 
     const checkBan = async () => {
-        if (props.state.address !== undefined && props.state.address !== "0x0") {
+        if (state.address !== undefined && state.address !== null) {
 
-            await contract.methods.isBlacklisted(props.state.address).call() ? props.dispatch({ type: "setBlacklist", payload: true }) : props.dispatch({ type: "setBlacklist", payload: false });
+            await web3state.contractInterface.methods.isBlacklisted(state.address).call() ? dispatch({ type: "setBlacklist", payload: true }) : dispatch({ type: "setBlacklist", payload: false });
 
-            await contract.methods.isAdmin(props.state.address).call() ? props.dispatch({ type: "setAdmin", payload: true }) : props.dispatch({ type: "setAdmin", payload: false });
+            await web3state.contractInterface.methods.isAdmin(state.address).call() ? dispatch({ type: "setAdmin", payload: true }) : dispatch({ type: "setAdmin", payload: false });
 
-            await contract.methods.isOwner(props.state.address).call() ? props.dispatch({ type: "setOwner", payload: true }) : props.dispatch({ type: "setOwner", payload: false });
+            await web3state.contractInterface.methods.isOwner(state.address).call() ? dispatch({ type: "setOwner", payload: true }) : dispatch({ type: "setOwner", payload: false });
         } else {
-            props.dispatch({ type: "setOwner", payload: false });
-            props.dispatch({ type: "setBlacklist", payload: false });
-            props.dispatch({ type: "setAdmin", payload: false });
+            mainDispatch({ type: "setOwner", payload: false });
+            mainDispatch({ type: "setBlacklist", payload: false });
+            mainDispatch({ type: "setAdmin", payload: false });
         }
     }
 
+    useEffect(() => {
+        console.log(state)
+    }, [state])
 
     useEffect(() => {
         checkBan();
         checkContractBalance();
         checkBalance();
-    }, [props.state.address]);
+    }, [state.address]);
 
-    useEffect(() => {
-        contract.events.adminAdded().on("data", (event) => {
-            console.log(event.returnValues[0]);
-        }).on("error", console.error);
-
-        contract.events.transferRequested().on("data", (event) => {
-        })
-        // Cleanup
-        return () => {
-            contract.events.adminAdded().removeAllListeners("data");
-            contract.events.adminAdded().removeAllListeners("error");
-
-        }
-    }, [props.state.connected]);
 
     const checkBalance = async () => {
-        props.state.address !== undefined && props.state.address !== "0x0" && props.dispatch({ type: "setBalance", payload: web3.utils.fromWei(await web3.eth.getBalance(props.state.address)) });
+        state.address !== undefined && state.address !== "0x0" && dispatch({ type: "setBalance", payload: web3state.web3.utils.fromWei(await web3state.web3.eth.getBalance(state.address)) });
     };
 
     const checkContractBalance = async () => {
-        props.dispatch({ type: "setContractBalance", payload: await vault.methods.getBalance().call() });
+        dispatch({ type: "setContractBalance", payload: await web3state.vault.methods.getBalance().call() });
     };
 
     const makeAdmin = async () => {
         try {
-            await contract.methods.addAdmin(state.address).send({ from: props.state.address });
+            await web3state.contract.methods.addAdmin(state.address).send({ from: state.address });
         } catch (error) {
             console.log(error);
         }
-        state.address === props.state.address && props.dispatch({ type: "setAdmin", payload: true });
+        state.address === state.address && mainDispatch({ type: "setAdmin", payload: true });
     }
 
     const removeAdmin = async () => {
         try {
-            await contract.methods.removeAdmin(state.removeAddress).send({ from: props.state.address });
+            await state.contract.methods.removeAdmin(state.removeAddress).send({ from: state.address });
         } catch (error) {
             if (error.reason) {
                 console.log(`Error: ${error.reason}`);
@@ -124,21 +107,21 @@ export default function Main(props) {
                 console.log(`No message: ${error}`);
             }
         }
-        state.removeAddress === props.state.address && props.dispatch({ type: "setAdmin", payload: false });
+        state.removeAddress === state.address && mainDispatch({ type: "setAdmin", payload: false });
     }
 
     const addBan = async () => {
         try {
-            await contract.methods.addBlacklist(state.banAddress).send({ from: props.state.address });
+            await web3state.contract.methods.addBlacklist(state.banAddress).send({ from: state.address });
         } catch (error) {
             console.log(error);
         }
-        state.banAddress === props.state.address && props.dispatch({ type: "setBlacklist", payload: true });
+        state.banAddress === state.address && dispatch({ type: "setBlacklist", payload: true });
     }
 
     const removeBan = async () => {
         try {
-            await contract.methods.removeBlacklist(state.unbanAddress).send({ from: props.state.address });
+            await web3state.contract.methods.removeBlacklist(state.unbanAddress).send({ from: state.address });
         } catch (error) {
             console.log(error);
         }
@@ -146,7 +129,7 @@ export default function Main(props) {
 
     const sendEther = async (e) => {
         try {
-            await contract.methods.requestTransfer(state.sendTo, web3.utils.toWei(state.amount, "ether")).send({ from: props.state.address, gas: "1000000" });
+            await web3state.contract.methods.requestTransfer(state.sendTo, web3state.web3.utils.toWei(state.amount, "ether")).send({ from: state.address, gas: "1000000" });
         } catch (error) {
             console.log(error);
         }
@@ -157,7 +140,7 @@ export default function Main(props) {
 
     const withdraw = async (e) => {
         try {
-            await vault.methods.withdraw(web3.utils.toWei(state.withdrawAmount)).send({ from: props.state.address });
+            await web3state.vault.methods.withdraw(web3state.web3.utils.toWei(state.withdrawAmount)).send({ from: state.address });
         } catch (error) {
             console.log(error);
         }
@@ -167,8 +150,8 @@ export default function Main(props) {
 
     const sendToContract = async (e) => {
         const transaction = {
-            from: props.state.address,
-            to: vaultAddress,
+            from: state.address,
+            to: web3state.vaultAddress,
             value: web3.utils.toWei(state.sendAmount),
             gasPrice: 0
         }
@@ -177,8 +160,8 @@ export default function Main(props) {
                 if (error) { console.log(error); }
                 else {
                     console.log("Ether sent");
-                    props.dispatch({ type: "setBalance", payload: props.state.balance - state.sendAmount });
-                    props.dispatch({ type: "setContractBalance", payload: Number(props.state.contractBalance) + Number(web3.utils.toWei(state.sendAmount)) });
+                    dispatch({ type: "setBalance", payload: state.balance - state.sendAmount });
+                    dispatch({ type: "setContractBalance", payload: Number(state.contractBalance) + Number(web3.utils.toWei(state.sendAmount)) });
                 }
             });
         } catch (error) {
@@ -188,10 +171,10 @@ export default function Main(props) {
 
     const sendToUser = async (e) => {
         try {
-            await vault.methods.send(web3.utils.toWei(state.addressAmount), state.sendAddress).send({ from: props.state.address });
-            props.dispatch({ type: "setContractBalance", payload: Number(props.state.contractBalance) - Number(web3.utils.toWei(state.addressAmount)) });
-            state.sendAddress === props.state.address && (
-                props.dispatch({ type: "setBalance", payload: Number(props.state.balance) + Number(web3.utils.toWei(state.addressAmount)) })
+            await vault.methods.send(web3.utils.toWei(state.addressAmount), state.sendAddress).send({ from: state.address });
+            dispatch({ type: "setContractBalance", payload: Number(state.contractBalance) - Number(web3.utils.toWei(state.addressAmount)) });
+            state.sendAddress === state.address && (
+                dispatch({ type: "setBalance", payload: Number(state.balance) + Number(web3.utils.toWei(state.addressAmount)) })
             )
         } catch (error) {
             console.log(error);
@@ -224,31 +207,8 @@ export default function Main(props) {
     return (
         <>
             <div className={styles.main}>
-                {!props.state.loading && !props.state.connected && <p>Please connect your wallet</p>}
-                {props.state.loading && <p>Please wait ...</p>}
-                {props.state.blacklist && <p className={styles.banned}><RemoveCircleOutlineIcon />You are banned.</p>}
-                {!props.state.loading && !props.state.blacklist && props.state.connected && (
-                    <>
-                        <div className={styles.welcome}>
-                            <div className={styles.topwelcome}>
-                                <Avatar>
-                                    <AdminPanelSettingsIcon />
-                                </Avatar>
-                                {props.state.owner && (
-                                    <p>Welcome, owner</p>
-                                )}
-                                {props.state.admin && !props.state.owner && (
-                                    <p>Welcome, admin</p>
-                                )
-                                }
-                                {props.state.connected && !props.state.admin && !props.state.owner && (
-                                    <p>Welcome to DBank</p>
-                                )}
-                            </div>
-                        </div>
-                    </>
-                )}
-                {!props.state.loading && !props.state.blacklist && props.state.connected && props.state.owner && (
+                <WelcomeScreen value={{ isLoading, isConnected, blacklist, owner, admin }} />
+                {!state.loading && !state.blacklist && state.connected && state.owner && (
                     <>
                         <div className={styles.topwelcome}>
                             <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
@@ -265,7 +225,7 @@ export default function Main(props) {
 
                     </>
                 )}
-                {!props.state.loading && !props.state.blacklist && props.state.connected && props.state.owner || props.state.admin && (
+                {!state.loading && !state.blacklist && state.connected && state.owner || state.admin && (
                     <>
                         <div className={styles.topwelcome}>
                             <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
@@ -285,7 +245,7 @@ export default function Main(props) {
 
 
             </div>
-            {props.state.connected && !props.state.blacklist && (
+            {state.connected && !state.blacklist && (
                 <div className={styles.transaction}>
                     <h3>Send a transaction</h3>
                     <TextField label="To" variant="standard" onChange={(e) => dispatch({ type: "addSendTo", payload: e.target.value })} />
@@ -294,11 +254,11 @@ export default function Main(props) {
                 </div>
             )}
 
-            {props.state.connected && !props.state.blacklist && props.state.owner && (
+            {state.connected && !state.blacklist && state.owner && (
                 <>
                     <div className={styles.transaction}>
                         <div>
-                            <h4>Balance: {web3.utils.fromWei(String(props.state.contractBalance))} Ether</h4>
+                            <h4>Balance: {web3.utils.fromWei(String(state.contractBalance))} Ether</h4>
                         </div>
                     </div>
                     <div className={styles.transaction}>
@@ -324,14 +284,14 @@ export default function Main(props) {
                     </div>
                 </>
             )}
-            {props.state.connected && !props.state.blacklist && (
+            {state.connected && !state.blacklist && (
                 <>
                     <hr />
                     <div className={styles.transactionlist}>
                         <h3>Transactions</h3>
                         <Box sx={{ height: 400, width: '100%' }}>
                             <DataGrid
-                                rows={props.transactionlist}
+                                rows={transactionlist}
                                 columns={columns}
                                 pageSize={10}
                                 rowsPerPageOptions={[10]}
