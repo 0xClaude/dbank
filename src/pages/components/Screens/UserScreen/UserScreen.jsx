@@ -12,6 +12,7 @@ function UserScreen() {
     const [sendTo, setSendTo] = useState(undefined);
 
     const checkTransfers = async () => {
+        setTransfers([]);
         try {
             if (!state.contractInterface) { return; }
             if (!state.userWalletAddress) { return; }
@@ -24,7 +25,6 @@ function UserScreen() {
 
     const requestTransfer = async () => {
         try {
-            console.log(`Trying to send ${amount} to ${sendTo}`);
             if (!state.userWalletAddress) { return; }
             if (!sendTo) { return; }
             await state.contractInterface.methods.requestTransfer(sendTo, amount).send({ from: state.userWalletAddress, gas: 3000000 });
@@ -35,10 +35,27 @@ function UserScreen() {
             setSendTo(undefined);
         }
     }
-
+    // Whenever the user changes his or her wallet, check for the transfers (s)he requested
     useEffect(() => {
         checkTransfers();
-    },[state.userWalletAddress])
+    }, [state.userWalletAddress])
+
+    useEffect(() => {
+        if (state.contractInterface) {
+            try {
+                state.contractInterface.events.transferRequested({}).
+                    on("data", (event) => {
+                        const newTransaction = [event.returnValues[0], event.returnValues[2], event.returnValues[3], event.returnValues[4]]
+                        setTransfers((previous) => {
+                            return [...previous, newTransaction];
+                        });
+                    })
+            } catch (error) {
+                console.log(error);
+            }
+        }
+    }, [state.contractInterface]);
+
 
     return (
         <>
@@ -48,13 +65,14 @@ function UserScreen() {
                 <TextField label="Amount" autoComplete="off" onChange={(e) => setAmount(Number(e.target.value))} />
                 <Button onClick={requestTransfer}>Request transfer</Button>
             </Box>
-            {transfers !== null && transfers.map((item, index) => {
-                return <div key={index}>
+            {transfers !== null && transfers !== undefined && transfers.map((item, index) => {
+                return (<div key={index}>
                     <p>Transaction ID: {item[0]}</p>
                     <p>Send it to: {item[1]}</p>
                     <p>Amount: {item[2]}</p>
-                    <p>Approved? {item[3] ? "True" : "False"}</p>
-                    </div>
+                    {item[3] && (<p>Approve the transaction!</p>)}
+                    <hr />
+                </div>)
             })}
         </>
     );
