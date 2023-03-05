@@ -1,7 +1,27 @@
 .welcome {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    justify-content: center;
-    align-items: center;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	justify-content: center;
+	align-items: center;
+}
+
+.error {
+	width: 100%;
+	background-color: rgb(242, 115, 115);
+	color: #ffffff;
+	height: 4rem;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.success {
+	width: 100%;
+	background-color: rgb(85, 126, 86);
+	color: #ffffff;
+	height: 4rem;
+	display: flex;
+	justify-content: center;
+	align-items: center;
 }

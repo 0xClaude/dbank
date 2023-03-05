@@ -13,6 +13,16 @@ function Start() {
     return (
         <>
             <div className={styles.welcome}>
+                {state.error !== null && (
+                    <div className={styles.error}>
+                        {state.error}
+                    </div>
+                )}
+                {state.success !== null && (
+                    <div className={styles.success}>
+                        {state.success}
+                    </div>
+                )}
                 {state.loading && <p>Please wait</p>}
                 {!state.isConnected && <p>Please connect your wallet</p>}
                 {state.userIsBlacklisted && <BlacklistScreen />}

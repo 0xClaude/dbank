@@ -1,16 +1,17 @@
-import styles from "./UserScreen.module.css"
+import styles from "./UserScreen.module.css";
 
 import { Context } from "@/pages";
-import { Box, TextField, Button } from "@mui/material";
+import { Box, Button, TextField } from "@mui/material";
 import { useContext, useEffect, useState } from "react";
 
 function UserScreen() {
 
-    const { state, dispatch } = useContext(Context);
+    const { state, handleSuccess, handleError } = useContext(Context);
     const [transfers, setTransfers] = useState(null);
     const [amount, setAmount] = useState(undefined);
     const [sendTo, setSendTo] = useState(undefined);
-
+    
+    // Query the blockchain for all the transfers the user did so far
     const checkTransfers = async () => {
         setTransfers([]);
         try {
@@ -19,17 +20,24 @@ function UserScreen() {
             const userTransfers = await state.contractInterface.methods.checkTransfers(state.userWalletAddress).call();
             setTransfers(userTransfers);
         } catch (error) {
-            console.log(error);
+            handleError(error.message);
         }
     }
 
+    // Submit a request for a transfer
     const requestTransfer = async () => {
         try {
-            if (!state.userWalletAddress) { return; }
-            if (!sendTo) { return; }
+            if (!state.userWalletAddress) {
+                handleError("Wallet not connected");
+                return;
+            }
+            if (!sendTo) {
+                handleError("Please enter Recipient");
+                return;
+            }
             await state.contractInterface.methods.requestTransfer(sendTo, amount).send({ from: state.userWalletAddress, gas: 3000000 });
         } catch (error) {
-            console.log(error);
+            handleError(error.message);
         } finally {
             setAmount(undefined);
             setSendTo(undefined);
@@ -45,13 +53,14 @@ function UserScreen() {
             try {
                 state.contractInterface.events.transferRequested({}).
                     on("data", (event) => {
-                        const newTransaction = [event.returnValues[0], event.returnValues[2], event.returnValues[3], event.returnValues[4]]
+                        const newTransaction = [event.returnValues[0], event.returnValues[2], event.returnValues[3], event.returnValues[4]];
+                        handleSuccess("Transfer requested");
                         setTransfers((previous) => {
                             return [...previous, newTransaction];
                         });
                     })
             } catch (error) {
-                console.log(error);
+                handleError(error.message);
             }
         }
     }, [state.contractInterface]);
@@ -65,12 +74,13 @@ function UserScreen() {
                 <TextField label="Amount" autoComplete="off" onChange={(e) => setAmount(Number(e.target.value))} />
                 <Button onClick={requestTransfer}>Request transfer</Button>
             </Box>
-            {transfers !== null && transfers !== undefined && transfers.map((item, index) => {
+            {transfers && transfers.map((item, index) => {
                 return (<div key={index}>
                     <p>Transaction ID: {item[0]}</p>
                     <p>Send it to: {item[1]}</p>
-                    <p>Amount: {item[2]}</p>
-                    {item[3] && (<p>Approve the transaction!</p>)}
+                    <p>Amount: {item[2]} ETH</p>
+                    {!item[3] && <p>Waiting for approval</p>}
+                    {!item[4] && item[3] && <p>Transfer</p>}
                     <hr />
                 </div>)
             })}

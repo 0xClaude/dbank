@@ -16,6 +16,7 @@ contract DBank {
         address payable recipient;
         uint256 amount;
         bool approved;
+        bool submitted;
     }
 
     // Mappings for each user's transactions
@@ -110,7 +111,7 @@ contract DBank {
     function requestTransfer(address payable _to, uint256 _amount) public {
         require(msg.sender.balance >= _amount, "Not enough ether");
         transactions[msg.sender].push(
-            Transaction(transactionCount, _to, _amount, false)
+            Transaction(transactionCount, _to, _amount, false, false)
         );
         emit transferRequested(transactionCount, msg.sender, _to, _amount);
         transactionCount++;
@@ -136,9 +137,12 @@ contract DBank {
             transaction.approved == true,
             "Transaction was not approved yet"
         );
+        require(msg.sender.balance >= transactions[msg.sender][_transactionId].amount, "Not enough ether");
         address payable _to = transactions[msg.sender][_transactionId]
             .recipient;
         uint256 _amount = transactions[msg.sender][_transactionId].amount;
+        transactions[msg.sender][_transactionId].submitted = true;
+        // TODO use a better way to send funds
         _to.transfer(_amount);
         emit transactionSend(msg.sender, _transactionId);
     }

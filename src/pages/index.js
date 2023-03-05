@@ -3,7 +3,7 @@ import { CssBaseline } from "@mui/material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import Head from "next/head";
 
-import { createContext, useEffect, useMemo, useReducer } from "react";
+import { createContext, useCallback, useEffect, useMemo, useReducer } from "react";
 import Navbar from "./components/Navbar/Navbar";
 import Start from "./components/Start/Start";
 
@@ -26,7 +26,9 @@ const initialState = {
   contractAddress: null,
   contractInterface: null,
   vaultAddress: null,
-  vaultInterface: null
+  vaultInterface: null,
+  error: null,
+  success: null
 }
 
 const reducer = (state, action) => {
@@ -57,6 +59,10 @@ const reducer = (state, action) => {
       return { ...state, vaultAddress: action.payload };
     case "setVaultInterface":
       return { ...state, vaultInterface: action.payload };
+    case "setError":
+      return { ...state, error: action.payload };
+    case "setSuccess":
+      return { ...state, success: action.payload };
     default:
       throw new Error(`Received: ${action.type}`);
   }
@@ -67,6 +73,22 @@ export const Context = createContext();
 export default function App() {
 
   const [state, dispatch] = useReducer(reducer, initialState);
+
+  // Handling Error messages and success messages
+
+  const handleError = (error) => {
+    dispatch({ type: "setError", payload: error });
+    setTimeout(() => {
+      dispatch({ type: "setError", payload: null })
+    }, 2000);
+  };
+
+  const handleSuccess = (success) => {
+    dispatch({ type: "setSuccess", payload: success })
+    setTimeout(() => {
+      dispatch({ type: "setSuccess", payload: null });
+    }, 2000)
+  };
 
   // Connect to the blockchain and store interfaces in the state
   const connect = async () => {
@@ -165,7 +187,7 @@ export default function App() {
 
   // Memoising state and dispatch to avoid unnecessary rendering
   const reduceProps = useMemo(() => {
-    return { state, dispatch }
+    return { state, dispatch, handleSuccess, handleError }
   }, [state, dispatch]);
 
   // Memoising the theme to avoid unneccessary rendering
