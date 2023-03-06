@@ -7,7 +7,7 @@ import { createContext, useCallback, useEffect, useMemo, useReducer } from "reac
 import Navbar from "./components/Navbar/Navbar";
 import Start from "./components/Start/Start";
 
-import { contractABI, contractAddress, vaultABI, vaultAddress } from "@/pages/web3/contract";
+import { contractABI, contractAddress } from "@/pages/web3/contract";
 import Web3 from "web3";
 
 // We are using useReducer to manage the many states accross the app.
@@ -25,8 +25,6 @@ const initialState = {
   web3Interface: null,
   contractAddress: null,
   contractInterface: null,
-  vaultAddress: null,
-  vaultInterface: null,
   error: null,
   success: null
 }
@@ -55,10 +53,6 @@ const reducer = (state, action) => {
       return { ...state, contractAddress: action.payload };
     case "setContractInterface":
       return { ...state, contractInterface: action.payload };
-    case "setVaultAddress":
-      return { ...state, vaultAddress: action.payload };
-    case "setVaultInterface":
-      return { ...state, vaultInterface: action.payload };
     case "setError":
       return { ...state, error: action.payload };
     case "setSuccess":
@@ -93,16 +87,12 @@ export default function App() {
   // Connect to the blockchain and store interfaces in the state
   const connect = async () => {
     dispatch({ type: "setContractAddress", payload: contractAddress });
-    dispatch({ type: "setVaultAddress", payload: vaultAddress });
 
     const web3 = new Web3("ws://127.0.0.1:7545");
     dispatch({ type: "setWeb3Interface", payload: web3 });
 
     const newContractInterface = new web3.eth.Contract(contractABI, contractAddress);
     dispatch({ type: "setContractInterface", payload: newContractInterface });
-
-    const newVaultInface = new web3.eth.Contract(vaultABI, vaultAddress);
-    dispatch({ type: "setVaultInterface", payload: newVaultInface });
   }
 
   // Automatically connecting wallet when the component renders
