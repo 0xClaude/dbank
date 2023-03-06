@@ -36,6 +36,7 @@ function UserScreen() {
                 return;
             }
             await state.contractInterface.methods.requestTransfer(sendTo, amount).send({ from: state.userWalletAddress, gas: 3000000 });
+            handleSuccess("Transfer requested, please wait for approval.")
         } catch (error) {
             handleError(error.message);
         } finally {
@@ -48,6 +49,7 @@ function UserScreen() {
         checkTransfers();
     }, [state.userWalletAddress])
 
+    // Listen for Events emitted by the smart contract
     useEffect(() => {
         if (state.contractInterface) {
             try {
@@ -77,7 +79,7 @@ function UserScreen() {
             {transfers && transfers.map((item, index) => {
                 return (<div key={index}>
                     <p>Transaction ID: {item[0]}</p>
-                    <p>Send it to: {item[1]}</p>
+                    <p>Recipient: {item[1]}</p>
                     <p>Amount: {item[2]} ETH</p>
                     {!item[3] && <p>Waiting for approval</p>}
                     {!item[4] && item[3] && <p>Transfer</p>}

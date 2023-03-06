@@ -7,7 +7,7 @@ import { Context } from "@/pages";
 function AdminScreen() {
     const [addAddress, setAddAddress] = useState("");
     const [removeAddress, setRemoveAddress] = useState("");
-    const { state } = useContext(Context);
+    const { state, handleSuccess, handleError } = useContext(Context);
 
     const banUser = async () => {
         if (addAddress === state.userWalletAddress) {
@@ -15,19 +15,21 @@ function AdminScreen() {
         }
         try {
             await state.contractInterface.methods.addBlacklist(addAddress).send({ from: state.userWalletAddress });
+            handleSuccess(`Banned the user.`);
         } catch (error) {
-            console.log(error);
+            handleError(error.message);
         } finally {
-            console.log(`Banned ${addAddress}`);
+            setAddAddress(null);
         }
     }
     const unbanUser = async () => {
         try {
             await state.contractInterface.methods.removeBlacklist(removeAddress).send({ from: state.userWalletAddress });
+            handleSuccess(`Unbanned the user`);
         } catch (error) {
-            console.log(error);
+            handleError(error.message);
         } finally {
-            console.log(`Unbanned ${removeAddress}`);
+            setRemoveAddress(null);
         }
     }
 

@@ -88,7 +88,12 @@ export default function Navbar() {
                 <h3><span className={styles.highlight}>De</span>centralised Bank</h3>
             </div>
             <div className={styles.rightbar}>
-                {!state.loading && state.isConnected && !state.userIsBlacklisted && formatBalance(state.web3Interface.utils.fromWei(String(state.userWalletBalance)))} Eth
+                {!state.loading && state.isConnected && !state.userIsBlacklisted && (
+                    <div>
+                        <p>Your balance: {formatBalance(state.web3Interface.utils.fromWei(String(state.userWalletBalance)))} ETH</p>
+                        
+                    </div>)
+                }
                 <div className={styles.colormode}>
                     <NightsStayIcon color="primary" />
                     <Switch onChange={changeTheme} />
