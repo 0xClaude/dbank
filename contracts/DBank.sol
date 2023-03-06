@@ -22,6 +22,9 @@ contract DBank {
     // Mappings for each user's transactions
     mapping(address => Transaction[]) public transactions;
 
+    // Setting a reentrance guard
+    bool private locked;
+
     // Events for the frontend
     event ownerChanged(address _newOwner);
     event adminAdded(address _addr);
@@ -42,6 +45,14 @@ contract DBank {
         owner = msg.sender;
     }
 
+    // Modifier for reentrance guard
+    modifier noReentrance() {
+        require(!locked, "Reentrant call");
+        locked = true;
+        _;
+        locked = false;
+    }
+
     // Modifiers for owner and admin only functions
     modifier onlyOwner() {
         require(msg.sender == owner, "You are not the owner");
@@ -54,7 +65,7 @@ contract DBank {
     }
 
     // Only the owner can change the owner of the contract
-    function changeOwner(address _newOwner) public onlyOwner {
+    function changeOwner(address _newOwner) public onlyOwner noReentrance {
         owner = _newOwner;
         emit ownerChanged(_newOwner);
     }
@@ -81,13 +92,13 @@ contract DBank {
     }
 
     // Adding and removing admins - only the owner can do so
-    function addAdmin(address _addr) public onlyOwner {
+    function addAdmin(address _addr) public onlyOwner noReentrance {
         require(admin[_addr] == false, "User is already admin");
         admin[_addr] = true;
         emit adminAdded(_addr);
     }
 
-    function removeAdmin(address _addr) public onlyOwner {
+    function removeAdmin(address _addr) public onlyOwner noReentrance {
         require(admin[_addr] == true, "User is no admin");
         admin[_addr] = false;
         emit adminRemoved(_addr);
@@ -95,20 +106,20 @@ contract DBank {
 
     // Adding and removing blacklisted people
     // Only the owner and admins can do this
-    function addBlacklist(address _addr) public onlyAdmin {
+    function addBlacklist(address _addr) public onlyAdmin noReentrance {
         require(blacklist[_addr] == false, "User is already blacklisted");
         blacklist[_addr] = true;
         emit blacklistAdded(_addr);
     }
 
-    function removeBlacklist(address _addr) public onlyAdmin {
+    function removeBlacklist(address _addr) public onlyAdmin noReentrance {
         require(blacklist[_addr] == true, "User is not blacklisted");
         blacklist[_addr] = false;
         emit blacklistRemoved(_addr);
     }
 
     // User wants to transfer money, the boolean is set to "false" initially
-    function requestTransfer(address payable _to, uint256 _amount) public {
+    function requestTransfer(address payable _to, uint256 _amount) public noReentrance {
         require(msg.sender.balance >= _amount, "Not enough ether");
         transactions[msg.sender].push(
             Transaction(transactionCount, _to, _amount, false, false)
@@ -121,6 +132,7 @@ contract DBank {
     function approveTransfer(address _from, uint256 _transactionId)
         public
         onlyAdmin
+        noReentrance
     {
         Transaction memory transaction = transactions[_from][_transactionId];
         require(!transaction.approved, "Transaction was already approved");
@@ -129,7 +141,7 @@ contract DBank {
     }
 
     // If the boolean is set to true, the user can then transfer the funds
-    function transfer(uint256 _transactionId) public {
+    function transfer(uint256 _transactionId) public noReentrance {
         Transaction memory transaction = transactions[msg.sender][
             _transactionId
         ];
@@ -137,13 +149,17 @@ contract DBank {
             transaction.approved == true,
             "Transaction was not approved yet"
         );
-        require(msg.sender.balance >= transactions[msg.sender][_transactionId].amount, "Not enough ether");
+        require(
+            msg.sender.balance >=
+                transactions[msg.sender][_transactionId].amount,
+            "Not enough ether"
+        );
         address payable _to = transactions[msg.sender][_transactionId]
             .recipient;
         uint256 _amount = transactions[msg.sender][_transactionId].amount;
         transactions[msg.sender][_transactionId].submitted = true;
-        // TODO use a better way to send funds
-        _to.transfer(_amount);
+        (bool sent, ) = _to.call{value: _amount}("");
+        require(sent, "Failed to send Ether");
         emit transactionSend(msg.sender, _transactionId);
     }
 }

@@ -8,9 +8,9 @@ function UserScreen() {
 
     const { state, handleSuccess, handleError } = useContext(Context);
     const [transfers, setTransfers] = useState(null);
-    const [amount, setAmount] = useState(undefined);
-    const [sendTo, setSendTo] = useState(undefined);
-    
+    const [amount, setAmount] = useState("");
+    const [sendTo, setSendTo] = useState("");
+
     // Query the blockchain for all the transfers the user did so far
     const checkTransfers = async () => {
         setTransfers([]);
@@ -40,8 +40,8 @@ function UserScreen() {
         } catch (error) {
             handleError(error.message);
         } finally {
-            setAmount(undefined);
-            setSendTo(undefined);
+            setAmount("");
+            setSendTo("");
         }
     }
     // Whenever the user changes his or her wallet, check for the transfers (s)he requested
@@ -51,9 +51,10 @@ function UserScreen() {
 
     // Listen for Events emitted by the smart contract
     useEffect(() => {
+        let transactionListener;
         if (state.contractInterface) {
             try {
-                state.contractInterface.events.transferRequested({}).
+                transactionListener = state.contractInterface.events.transferRequested({}).
                     on("data", (event) => {
                         const newTransaction = [event.returnValues[0], event.returnValues[2], event.returnValues[3], event.returnValues[4]];
                         handleSuccess("Transfer requested");
@@ -65,15 +66,21 @@ function UserScreen() {
                 handleError(error.message);
             }
         }
-    }, [state.contractInterface]);
+        // Clean up the listener
+        return () => {
+            if (transactionListener) {
+                transactionListener.unsubscribe();
+            }
+        }
+    }, []);
 
 
     return (
         <>
             <h3>Hello, welcome to DBank v3</h3>
             <Box display="flex" alignItems="center" className={styles.transfer}>
-                <TextField label="Address" autoComplete="off" onChange={(e) => setSendTo(e.target.value)} />
-                <TextField label="Amount" autoComplete="off" onChange={(e) => setAmount(Number(e.target.value))} />
+                <TextField value={sendTo} label="Address" autoComplete="off" onChange={(e) => setSendTo(e.target.value)} />
+                <TextField value={amount} label="Amount" autoComplete="off" onChange={(e) => setAmount(Number(e.target.value))} />
                 <Button onClick={requestTransfer}>Request transfer</Button>
             </Box>
             {transfers && transfers.map((item, index) => {

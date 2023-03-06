@@ -7,8 +7,10 @@ import { Context } from "@/pages";
 function AdminScreen() {
     const [addAddress, setAddAddress] = useState("");
     const [removeAddress, setRemoveAddress] = useState("");
+    const [transactions, setTransactions] = useState(null);
     const { state, handleSuccess, handleError } = useContext(Context);
 
+    // Banning a user and handling errors
     const banUser = async () => {
         if (addAddress === state.userWalletAddress) {
             return;
@@ -22,6 +24,8 @@ function AdminScreen() {
             setAddAddress(null);
         }
     }
+
+    // Unbanning a user and handling errors
     const unbanUser = async () => {
         try {
             await state.contractInterface.methods.removeBlacklist(removeAddress).send({ from: state.userWalletAddress });
@@ -30,6 +34,16 @@ function AdminScreen() {
             handleError(error.message);
         } finally {
             setRemoveAddress(null);
+        }
+    }
+
+    // Getting all the transactions on the blockchain
+    const getAllTransactions = () => {
+        setTransactions([]);
+        try {
+            if (!state.contractInterface || !state.userWalletAddress || !state.userIsAdmin) { return; }
+        } catch (error) {
+            handleError(error.message);
         }
     }
 
