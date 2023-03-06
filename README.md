@@ -20,6 +20,7 @@ Run the local environment
 
 Some features are not implemented yet:
 - Admin: Approve the transaction
+- Admin: Reject the transaction
 - User: submit approved transactions
 - Optional: user can cancel their requested transactions
 

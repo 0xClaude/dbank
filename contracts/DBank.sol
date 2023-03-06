@@ -6,6 +6,11 @@ contract DBank {
     address public owner;
     uint256 public transactionCount;
 
+    // Let the contract receive funds
+    receive() external payable {}
+
+    fallback() external payable {}
+
     // Mappings for admins and blacklisted users
     mapping(address => bool) public admin;
     mapping(address => bool) public blacklist;
@@ -16,6 +21,8 @@ contract DBank {
         address payable recipient;
         uint256 amount;
         bool approved;
+        // TODO Add a bool for a rejected transfer
+        // TODO Add a bool for a cancelled transfer
         bool submitted;
     }
 
@@ -51,6 +58,12 @@ contract DBank {
         locked = true;
         _;
         locked = false;
+    }
+
+    // Modifier to exclude banned users
+    modifier notBanned() {
+        require(!isBlacklisted(msg.sender), "You are banned");
+        _;
     }
 
     // Modifiers for owner and admin only functions
@@ -119,7 +132,11 @@ contract DBank {
     }
 
     // User wants to transfer money, the boolean is set to "false" initially
-    function requestTransfer(address payable _to, uint256 _amount) public noReentrance {
+    function requestTransfer(address payable _to, uint256 _amount)
+        public
+        noReentrance
+        notBanned
+    {
         require(msg.sender.balance >= _amount, "Not enough ether");
         transactions[msg.sender].push(
             Transaction(transactionCount, _to, _amount, false, false)
@@ -140,8 +157,20 @@ contract DBank {
         emit transferApproved(_from, _transactionId);
     }
 
-    // If the boolean is set to true, the user can then transfer the funds
-    function transfer(uint256 _transactionId) public noReentrance {
+    // Get the balance of the contract
+    function getBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
+
+    // Get your funds back
+    function withdraw(uint256 _transactionId) public noReentrance notBanned {}
+
+    function transfer(uint256 _transactionId)
+        public
+        payable
+        noReentrance
+        notBanned
+    {
         Transaction memory transaction = transactions[msg.sender][
             _transactionId
         ];
@@ -152,14 +181,16 @@ contract DBank {
         require(
             msg.sender.balance >=
                 transactions[msg.sender][_transactionId].amount,
-            "Not enough ether"
+            "Not enough Ether"
         );
+
         address payable _to = transactions[msg.sender][_transactionId]
             .recipient;
         uint256 _amount = transactions[msg.sender][_transactionId].amount;
-        transactions[msg.sender][_transactionId].submitted = true;
+
         (bool sent, ) = _to.call{value: _amount}("");
         require(sent, "Failed to send Ether");
+        transactions[msg.sender][_transactionId].submitted = true;
         emit transactionSend(msg.sender, _transactionId);
     }
 }

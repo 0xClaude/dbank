@@ -1,13 +1,14 @@
 import styles from "./AdminScreen.module.css"
 
 import { Box, Button, TextField } from "@mui/material";
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { Context } from "@/pages";
+import { Unpublished } from "@mui/icons-material";
 
 function AdminScreen() {
     const [addAddress, setAddAddress] = useState("");
     const [removeAddress, setRemoveAddress] = useState("");
-    const [transactions, setTransactions] = useState(null);
+    const [transactionsEvents, setTransactionEvents] = useState(null);
     const { state, handleSuccess, handleError } = useContext(Context);
 
     // Banning a user and handling errors
@@ -37,15 +38,48 @@ function AdminScreen() {
         }
     }
 
-    // Getting all the transactions on the blockchain
-    const getAllTransactions = () => {
-        setTransactions([]);
+    // Getting all the transfer requests from the blockchain
+    const getPastTransactionRequestEvents = async () => {
+        setTransactionEvents([]);
         try {
             if (!state.contractInterface || !state.userWalletAddress || !state.userIsAdmin) { return; }
+
+            // We first get ALL the requests, then we get the approved requests and subtract them from the first list
+            const transferRequests = await state.contractInterface.getPastEvents("transferRequested", { fromBlock: 0, toBlock: "latest" });
+            const transferApprovals = await state.contractInterface.getPastEvents("transferApproved", { fromBlock: 0, toBlock: "latest" });
+
+            // Filtering out all the requests which have alrady been approved
+            // TODO Later: Add checks for rejected and cancelled transfers
+            const filteredRequests = transferRequests.filter(requests => {
+                const matchedRequests = transferApprovals.some(approvals => {
+                    return approvals.returnValues[1] === requests.returnValues[0];;
+                })
+                return !matchedRequests;
+            })
+            setTransactionEvents(filteredRequests);
         } catch (error) {
             handleError(error.message);
         }
     }
+
+    // Approve a transaction
+    const approveTransaction = async (from, id) => {
+        try {
+            const result = await state.contractInterface.methods.approveTransfer(from, id).send({ from: state.userWalletAddress });
+            console.log(result);
+            // Remove the transaction from the TransactionEvents Array
+            setTransactionEvents(previous => {
+                previous.filter(event => event.returnValues[0] !== id);
+            })
+        } catch (error) {
+            handleError(error.message);
+        }
+    }
+
+    // log all transactionsEvents
+    useEffect(() => {
+        getPastTransactionRequestEvents();
+    }, []);
 
     return (
         <>
@@ -61,7 +95,25 @@ function AdminScreen() {
                         <Button onClick={unbanUser}>Unban User</Button>
                     </Box>
                 </div>
-            </div>
+                <div className={styles.center}>
+                    <h3>Transfer requests awaiting approval:</h3>
+                    {transactionsEvents && transactionsEvents
+                        .map((item) => {
+                            return <div key={item.returnValues[0]}>
+                                <p>id: {item.returnValues[0]}</p>
+                                <p>From: {item.returnValues[1]}</p>
+                                <p>To: {item.returnValues[2]}</p>
+                                <p>Amount: {state.web3Interface.utils.fromWei(item.returnValues[3])}</p>
+                                <Button variant="outlined" onClick={() => approveTransaction(item.returnValues[1], item.returnValues[0])}>Approve</Button>
+                                <Button variant="outlined" color="error">Reject</Button>
+                                <hr />
+                            </div>
+                        })}
+                    {transactionsEvents && transactionsEvents.length === 0 && (
+                        <p>No transactions found.</p>
+                    )}
+                </div>
+            </div >
         </>
     )
 }

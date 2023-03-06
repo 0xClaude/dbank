@@ -6,7 +6,7 @@ import { useContext, useEffect, useState } from "react";
 
 function UserScreen() {
 
-    const { state, handleSuccess, handleError } = useContext(Context);
+    const { state, dispatch, handleSuccess, handleError } = useContext(Context);
     const [transfers, setTransfers] = useState(null);
     const [amount, setAmount] = useState("");
     const [sendTo, setSendTo] = useState("");
@@ -35,8 +35,23 @@ function UserScreen() {
                 handleError("Please enter Recipient");
                 return;
             }
-            await state.contractInterface.methods.requestTransfer(sendTo, amount).send({ from: state.userWalletAddress, gas: 3000000 });
-            handleSuccess("Transfer requested, please wait for approval.")
+            const weiAmount = state.web3Interface.utils.toWei(String(amount));
+            await state.contractInterface.methods.requestTransfer(sendTo, weiAmount).send({ from: state.userWalletAddress, gas: 3000000 });
+
+            // Depositing ETH into contract
+            const depositTransaction = {
+                from: state.userWalletAddress,
+                to: state.contractAddress,
+                value: weiAmount,
+                gasPrice: 0
+            }
+            await state.web3Interface.eth.sendTransaction(depositTransaction, (error, result) => {
+                if (error) { handleError(error.message) }
+                else {
+                    handleSuccess("Transfer requested, please wait for approval.");
+                    dispatch({ type: "setUserWalletBalance", payload: state.userWalletBalance - weiAmount});
+                }})
+                        
         } catch (error) {
             handleError(error.message);
         } finally {
@@ -44,6 +59,17 @@ function UserScreen() {
             setSendTo("");
         }
     }
+
+    // Transfer the funds
+    const sendTransaction = async (id) => {
+        try {
+            await state.contractInterface.methods.transfer(id).send({ from: state.userWalletAddress, gas: 3000000 });
+            handleSuccess("Successfully send the money");
+        } catch (error) {
+            handleError(error.message);
+        }
+    }
+
     // Whenever the user changes his or her wallet, check for the transfers (s)he requested
     useEffect(() => {
         checkTransfers();
@@ -87,9 +113,9 @@ function UserScreen() {
                 return (<div key={index}>
                     <p>Transaction ID: {item[0]}</p>
                     <p>Recipient: {item[1]}</p>
-                    <p>Amount: {item[2]} ETH</p>
+                    <p>Amount: {state.web3Interface.utils.fromWei(item[2])} ETH</p>
                     {!item[3] && <p>Waiting for approval</p>}
-                    {!item[4] && item[3] && <p>Transfer</p>}
+                    {!item[4] && item[3] && <Button onClick={() => sendTransaction(item[0])}>Transfer</Button>}
                     <hr />
                 </div>)
             })}

@@ -28,7 +28,7 @@ function Start() {
                 {state.userIsBlacklisted && <BlacklistScreen />}
                 {state.userIsOwner && <OwnerScreen />}
                 {state.userIsAdmin && <AdminScreen />}
-                {state.isConnected && <UserScreen />}
+                {state.isConnected && !state.loading && <UserScreen />}
             </div>
         </>
     )
