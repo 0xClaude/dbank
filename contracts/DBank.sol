@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 
 /// @title A decentralised banking application
 /// @author Claude Biver
-/// @notice DBank allows users on a private blockchain to transfer funds among each other. An admin must approve the transaction beforehand.
+/// @notice DBank allows users on a private local blockchain to transfer funds among each other. An admin must approve the transaction beforehand.
 /// @dev The projet assumes there are no gas fees.
 
 // Using the ReentranceGuary from OpenZeppelin
@@ -12,16 +12,16 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 // Using a pausable functionality from OpenZeppelin
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-contract DBank is ReentrancyGuard is Pausable {
+// Using the Address contract from OpenZeppelin
+import "@openzeppelin/contracts/utils/Address.sol";
+
+contract DBank is ReentrancyGuard, Pausable {
     // Set up the state variables
     address public owner;
     uint256 public transactionCount;
 
-    // Set up the pause variable needed for the Pausable contract
-    bool public paused;
-
     // Let the contract receive funds and emit an event
-    receive(address indexed _from, uint256 _amount) external payable {
+    receive() external payable nonReentrant {
         emit etherReceived(msg.sender, msg.value);
     }
 
@@ -73,7 +73,6 @@ contract DBank is ReentrancyGuard is Pausable {
     // Setting up the contract and assigning owner
     constructor() {
         owner = msg.sender;
-        paused = false;
     }
 
     // Get the balance of the contract
@@ -107,11 +106,6 @@ contract DBank is ReentrancyGuard is Pausable {
     // Owner functions
     //
 
-    // Stops everything from the contract
-    function emergencyStop() public onlyOwner {
-        stop = !stop;
-    }
-
     // Assign a new owner to the contract
     function changeOwner(address _newOwner) public onlyOwner whenNotPaused {
         owner = _newOwner;
@@ -119,7 +113,9 @@ contract DBank is ReentrancyGuard is Pausable {
     }
 
     // Adding an adminstrator
-    function addAdmin(address _addr) public onlyOwner nonReentrant whenNotPaused {
+    function addAdmin(
+        address _addr
+    ) public onlyOwner nonReentrant whenNotPaused {
         require(!admin[_addr], "User is already admin");
         admin[_addr] = true;
         emit adminAdded(_addr);
@@ -191,6 +187,7 @@ contract DBank is ReentrancyGuard is Pausable {
         uint256 _amount
     ) public payable nonReentrant notBanned whenNotPaused {
         require(msg.sender.balance >= _amount, "Not enough ether");
+        require(!isBlacklisted(_to), "Recipient is banned");
         transactions[msg.sender].push(
             Transaction(
                 transactionCount,
@@ -203,7 +200,7 @@ contract DBank is ReentrancyGuard is Pausable {
         transactionCount++;
     }
 
-§   // Admins can approve a transfer
+    // Admins can approve a transfer
     function approveTransfer(
         address _from,
         uint256 _transactionId
@@ -218,16 +215,22 @@ contract DBank is ReentrancyGuard is Pausable {
     }
 
     // Admins can reject a transfer
-    function rejectTransfer(address _from, uint256 _transactionId) public onlyAdmin nonReentrant whenNotPaused {
+    function rejectTransfer(
+        address _from,
+        uint256 _transactionId
+    ) public onlyAdmin nonReentrant whenNotPaused {
         Transaction storage transaction = transactions[_from][_transactionId];
-        require(transaction.status == TransactionStatus.Pending, "Transaction is not pending");
+        require(
+            transaction.status == TransactionStatus.Pending,
+            "Transaction is not pending"
+        );
         transaction.status = TransactionStatus.Rejected;
         emit transferRejected(_from, _transactionId);
     }
 
     // Users can cancel a transfer
     function withdraw(
-        address _from,
+        address payable _from,
         uint256 _transactionId
     ) public nonReentrant notBanned {
         require(msg.sender == _from, "This is not your transaction");
@@ -241,10 +244,10 @@ contract DBank is ReentrancyGuard is Pausable {
         transaction.status = TransactionStatus.Transmitted;
 
         uint256 _amount = transactions[_from][_transactionId].amount;
-        (bool sent, ) = _from.call{value: _amount}("");
-        require(sent, "Withdraw failed");
+        Address.sendValue(_from, _amount);
 
-        emit transferCancelled(_from, _transactionId, _amount);
+        emit transferCancelled(msg.sender, _transactionId, _amount);
+        emit fundsWithdrawn(msg.sender, _transactionId);
     }
 
     // When a transfer is approved, users can send the Ether
@@ -260,11 +263,10 @@ contract DBank is ReentrancyGuard is Pausable {
         );
         require(msg.sender.balance >= transaction.amount, "Not enough Ether");
 
-        address payable _to = transaction.recipient;
+        address payable _to = payable(transaction.recipient);
         uint256 _amount = transaction.amount;
 
-        (bool sent, ) = _to.call{value: _amount}("");
-        require(sent, "Failed to send Ether");
+        Address.sendValue(_to, _amount);
 
         transaction.status = TransactionStatus.Transmitted;
         emit fundsWithdrawn(msg.sender, _transactionId);
