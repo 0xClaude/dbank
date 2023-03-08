@@ -1,160 +1,79 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-contract DBank {
-    // State variable for the contract owner
+/// @title A decentralised banking application
+/// @author Claude Biver
+/// @notice DBank allows users on a private blockchain to transfer funds among each other. An admin must approve the transaction beforehand.
+/// @dev The projet assumes there are no gas fees.
+
+// Using the ReentranceGuary from OpenZeppelin
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
+// Using a pausable functionality from OpenZeppelin
+import "@openzeppelin/contracts/security/Pausable.sol";
+
+contract DBank is ReentrancyGuard is Pausable {
+    // Set up the state variables
     address public owner;
     uint256 public transactionCount;
 
-    // Let the contract receive funds
-    receive() external payable {}
+    // Set up the pause variable needed for the Pausable contract
+    bool public paused;
 
-    fallback() external payable {}
+    // Let the contract receive funds and emit an event
+    receive(address indexed _from, uint256 _amount) external payable {
+        emit etherReceived(msg.sender, msg.value);
+    }
 
     // Mappings for admins and blacklisted users
     mapping(address => bool) public admin;
     mapping(address => bool) public blacklist;
 
+    // The transaciton status can have one of five statuses:
+    enum TransactionStatus {
+        Pending,
+        Approved,
+        Rejected,
+        Transmitted
+    }
+
     // Struct for the transactions
     struct Transaction {
         uint256 id;
-        address payable recipient;
+        address recipient;
         uint256 amount;
-        bool approved;
-        // TODO Add a bool for a rejected transfer
-        // TODO Add a bool for a cancelled transfer
-        bool submitted;
+        TransactionStatus status;
     }
 
     // Mappings for each user's transactions
     mapping(address => Transaction[]) public transactions;
 
-    // Setting a reentrance guard
-    bool private locked;
-
     // Events for the frontend
-    event ownerChanged(address _newOwner);
-    event adminAdded(address _addr);
-    event adminRemoved(address _addr);
-    event blacklistAdded(address _addr);
-    event blacklistRemoved(address _addr);
+    event ownerChanged(address indexed _newOwner);
+    event adminAdded(address indexed _addr);
+    event adminRemoved(address indexed _addr);
+    event blacklistAdded(address indexed _addr);
+    event blacklistRemoved(address indexed _addr);
     event transferRequested(
         uint256 _id,
-        address _from,
+        address indexed _from,
         address payable _to,
         uint256 _amount
     );
-    event transferApproved(address _from, uint256 _id);
-    event transactionSend(address _from, uint256 _transactionId);
+    event transferApproved(address indexed _from, uint256 _id);
+    event transferRejected(address indexed _from, uint256 _id);
+    event fundsWithdrawn(address indexed _from, uint256 _transactionId);
+    event transferCancelled(
+        address _from,
+        uint256 _transactionId,
+        uint256 _amount
+    );
+    event etherReceived(address indexed _from, uint256 _amount);
 
     // Setting up the contract and assigning owner
     constructor() {
         owner = msg.sender;
-    }
-
-    // Modifier for reentrance guard
-    modifier noReentrance() {
-        require(!locked, "Reentrant call");
-        locked = true;
-        _;
-        locked = false;
-    }
-
-    // Modifier to exclude banned users
-    modifier notBanned() {
-        require(!isBlacklisted(msg.sender), "You are banned");
-        _;
-    }
-
-    // Modifiers for owner and admin only functions
-    modifier onlyOwner() {
-        require(msg.sender == owner, "You are not the owner");
-        _;
-    }
-
-    modifier onlyAdmin() {
-        require(admin[msg.sender] == true, "You are no admin");
-        _;
-    }
-
-    // Only the owner can change the owner of the contract
-    function changeOwner(address _newOwner) public onlyOwner noReentrance {
-        owner = _newOwner;
-        emit ownerChanged(_newOwner);
-    }
-
-    // Functions needed for the frontend
-    function isOwner(address _addr) public view returns (bool) {
-        return _addr == owner;
-    }
-
-    function isAdmin(address _addr) public view returns (bool) {
-        return admin[_addr];
-    }
-
-    function isBlacklisted(address _addr) public view returns (bool) {
-        return blacklist[_addr];
-    }
-
-    function checkTransfers(address _from)
-        public
-        view
-        returns (Transaction[] memory)
-    {
-        return transactions[_from];
-    }
-
-    // Adding and removing admins - only the owner can do so
-    function addAdmin(address _addr) public onlyOwner noReentrance {
-        require(admin[_addr] == false, "User is already admin");
-        admin[_addr] = true;
-        emit adminAdded(_addr);
-    }
-
-    function removeAdmin(address _addr) public onlyOwner noReentrance {
-        require(admin[_addr] == true, "User is no admin");
-        admin[_addr] = false;
-        emit adminRemoved(_addr);
-    }
-
-    // Adding and removing blacklisted people
-    // Only the owner and admins can do this
-    function addBlacklist(address _addr) public onlyAdmin noReentrance {
-        require(blacklist[_addr] == false, "User is already blacklisted");
-        blacklist[_addr] = true;
-        emit blacklistAdded(_addr);
-    }
-
-    function removeBlacklist(address _addr) public onlyAdmin noReentrance {
-        require(blacklist[_addr] == true, "User is not blacklisted");
-        blacklist[_addr] = false;
-        emit blacklistRemoved(_addr);
-    }
-
-    // User wants to transfer money, the boolean is set to "false" initially
-    function requestTransfer(address payable _to, uint256 _amount)
-        public
-        noReentrance
-        notBanned
-    {
-        require(msg.sender.balance >= _amount, "Not enough ether");
-        transactions[msg.sender].push(
-            Transaction(transactionCount, _to, _amount, false, false)
-        );
-        emit transferRequested(transactionCount, msg.sender, _to, _amount);
-        transactionCount++;
-    }
-
-    // Admins can approve transactions, boolean will be set to true
-    function approveTransfer(address _from, uint256 _transactionId)
-        public
-        onlyAdmin
-        noReentrance
-    {
-        Transaction memory transaction = transactions[_from][_transactionId];
-        require(!transaction.approved, "Transaction was already approved");
-        transactions[_from][_transactionId].approved = true;
-        emit transferApproved(_from, _transactionId);
+        paused = false;
     }
 
     // Get the balance of the contract
@@ -162,35 +81,192 @@ contract DBank {
         return address(this).balance;
     }
 
-    // Get your funds back
-    function withdraw(uint256 _transactionId) public noReentrance notBanned {}
+    //
+    // MODIFIERS
+    //
 
-    function transfer(uint256 _transactionId)
-        public
-        payable
-        noReentrance
-        notBanned
-    {
+    // Modifier to exclude banned users
+    modifier notBanned() {
+        require(!isBlacklisted(msg.sender), "You are banned");
+        _;
+    }
+
+    // Modifiers for owner only functions
+    modifier onlyOwner() {
+        require(msg.sender == owner, "You are not the owner");
+        _;
+    }
+
+    // Modifier for admin only function
+    modifier onlyAdmin() {
+        require(admin[msg.sender], "You are no admin");
+        _;
+    }
+
+    //
+    // Owner functions
+    //
+
+    // Stops everything from the contract
+    function emergencyStop() public onlyOwner {
+        stop = !stop;
+    }
+
+    // Assign a new owner to the contract
+    function changeOwner(address _newOwner) public onlyOwner whenNotPaused {
+        owner = _newOwner;
+        emit ownerChanged(_newOwner);
+    }
+
+    // Adding an adminstrator
+    function addAdmin(address _addr) public onlyOwner nonReentrant whenNotPaused {
+        require(!admin[_addr], "User is already admin");
+        admin[_addr] = true;
+        emit adminAdded(_addr);
+    }
+
+    // Removing ah administrator
+    function removeAdmin(
+        address _addr
+    ) public onlyOwner nonReentrant whenNotPaused {
+        require(admin[_addr], "User is no admin");
+        admin[_addr] = false;
+        emit adminRemoved(_addr);
+    }
+
+    //
+    // Admin functions
+    //
+
+    // Adding users to the blacklist, barring them from the dApp
+    function addBlacklist(
+        address _addr
+    ) public onlyAdmin nonReentrant whenNotPaused {
+        require(!blacklist[_addr], "User is already blacklisted");
+        blacklist[_addr] = true;
+        emit blacklistAdded(_addr);
+    }
+
+    // Unbanning users from the dApp
+    function removeBlacklist(
+        address _addr
+    ) public onlyAdmin nonReentrant whenNotPaused {
+        require(blacklist[_addr], "User is not blacklisted");
+        blacklist[_addr] = false;
+        emit blacklistRemoved(_addr);
+    }
+
+    //
+    // Frontend functions
+    //
+
+    // Check whether the user is the contract owner
+    function isOwner(address _addr) public view returns (bool) {
+        return _addr == owner;
+    }
+
+    // Check whether the user is admin of the contract
+    function isAdmin(address _addr) public view returns (bool) {
+        return admin[_addr];
+    }
+
+    // Check whether the user is blacklisted
+    function isBlacklisted(address _addr) public view returns (bool) {
+        return blacklist[_addr];
+    }
+
+    function checkTransfers(
+        address _from
+    ) public view returns (Transaction[] memory) {
+        return transactions[_from];
+    }
+
+    //
+    // Contract functionality
+    //
+
+    // Request a new transfer
+    function requestTransfer(
+        address payable _to,
+        uint256 _amount
+    ) public payable nonReentrant notBanned whenNotPaused {
+        require(msg.sender.balance >= _amount, "Not enough ether");
+        transactions[msg.sender].push(
+            Transaction(
+                transactionCount,
+                _to,
+                _amount,
+                TransactionStatus.Pending
+            )
+        );
+        emit transferRequested(transactionCount, msg.sender, _to, _amount);
+        transactionCount++;
+    }
+
+§   // Admins can approve a transfer
+    function approveTransfer(
+        address _from,
+        uint256 _transactionId
+    ) public onlyAdmin nonReentrant whenNotPaused {
+        Transaction storage transaction = transactions[_from][_transactionId];
+        require(
+            transaction.status == TransactionStatus.Pending,
+            "Transaction was already approved"
+        );
+        transaction.status = TransactionStatus.Approved;
+        emit transferApproved(_from, _transactionId);
+    }
+
+    // Admins can reject a transfer
+    function rejectTransfer(address _from, uint256 _transactionId) public onlyAdmin nonReentrant whenNotPaused {
+        Transaction storage transaction = transactions[_from][_transactionId];
+        require(transaction.status == TransactionStatus.Pending, "Transaction is not pending");
+        transaction.status = TransactionStatus.Rejected;
+        emit transferRejected(_from, _transactionId);
+    }
+
+    // Users can cancel a transfer
+    function withdraw(
+        address _from,
+        uint256 _transactionId
+    ) public nonReentrant notBanned {
+        require(msg.sender == _from, "This is not your transaction");
+
+        Transaction storage transaction = transactions[_from][_transactionId];
+        require(
+            transaction.status != TransactionStatus.Transmitted,
+            "You already transmitted the funds"
+        );
+        // We set this boolean to true, so the user cannot withdraw twice
+        transaction.status = TransactionStatus.Transmitted;
+
+        uint256 _amount = transactions[_from][_transactionId].amount;
+        (bool sent, ) = _from.call{value: _amount}("");
+        require(sent, "Withdraw failed");
+
+        emit transferCancelled(_from, _transactionId, _amount);
+    }
+
+    // When a transfer is approved, users can send the Ether
+    function transfer(
+        uint256 _transactionId
+    ) public payable nonReentrant notBanned whenNotPaused {
         Transaction memory transaction = transactions[msg.sender][
             _transactionId
         ];
         require(
-            transaction.approved == true,
-            "Transaction was not approved yet"
+            transaction.status == TransactionStatus.Approved,
+            "Transaction was not approved yet or funds have been transferred already."
         );
-        require(
-            msg.sender.balance >=
-                transactions[msg.sender][_transactionId].amount,
-            "Not enough Ether"
-        );
+        require(msg.sender.balance >= transaction.amount, "Not enough Ether");
 
-        address payable _to = transactions[msg.sender][_transactionId]
-            .recipient;
-        uint256 _amount = transactions[msg.sender][_transactionId].amount;
+        address payable _to = transaction.recipient;
+        uint256 _amount = transaction.amount;
 
         (bool sent, ) = _to.call{value: _amount}("");
         require(sent, "Failed to send Ether");
-        transactions[msg.sender][_transactionId].submitted = true;
-        emit transactionSend(msg.sender, _transactionId);
+
+        transaction.status = TransactionStatus.Transmitted;
+        emit fundsWithdrawn(msg.sender, _transactionId);
     }
 }

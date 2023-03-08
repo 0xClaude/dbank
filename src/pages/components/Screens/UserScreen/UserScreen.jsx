@@ -24,6 +24,29 @@ function UserScreen() {
         }
     }
 
+    // Helper function to deposit ETH into smart contract
+    const depositIntoContract = async (weiAmount) => {
+        const depositTransaction = {
+            from: state.userWalletAddress,
+            to: state.contractAddress,
+            value: weiAmount,
+            gasPrice: 0
+        }
+        try {
+            await state.web3Interface.eth.sendTransaction(depositTransaction, (error) => {
+                if (error) { handleError(error.message) }
+                else {
+                    handleSuccess("Transfer requested, please wait for approval.");
+                    dispatch({ type: "setUserWalletBalance", payload: state.userWalletBalance - weiAmount });
+                    dispatch({ type: "setContractBalance", payload: weiAmount });
+                }
+            })
+        } catch (error) {
+            handleError(error.message);
+        }
+
+    }
+
     // Submit a request for a transfer
     const requestTransfer = async () => {
         try {
@@ -39,19 +62,7 @@ function UserScreen() {
             await state.contractInterface.methods.requestTransfer(sendTo, weiAmount).send({ from: state.userWalletAddress, gas: 3000000 });
 
             // Depositing ETH into contract
-            const depositTransaction = {
-                from: state.userWalletAddress,
-                to: state.contractAddress,
-                value: weiAmount,
-                gasPrice: 0
-            }
-            await state.web3Interface.eth.sendTransaction(depositTransaction, (error, result) => {
-                if (error) { handleError(error.message) }
-                else {
-                    handleSuccess("Transfer requested, please wait for approval.");
-                    dispatch({ type: "setUserWalletBalance", payload: state.userWalletBalance - weiAmount});
-                }})
-                        
+            depositIntoContract(weiAmount);
         } catch (error) {
             handleError(error.message);
         } finally {
@@ -65,6 +76,16 @@ function UserScreen() {
         try {
             await state.contractInterface.methods.transfer(id).send({ from: state.userWalletAddress, gas: 3000000 });
             handleSuccess("Successfully send the money");
+        } catch (error) {
+            handleError(error.message);
+        }
+    }
+
+    // Cancel the transaction
+    const cancelTransaction = async (id) => {
+        try {
+            await state.contractInterface.methods.withdraw(state.userWalletAddress, id).call();
+            // TODO update the contract and the wallet balance (We can do this via listener)
         } catch (error) {
             handleError(error.message);
         }
@@ -114,10 +135,20 @@ function UserScreen() {
                     <p>Transaction ID: {item[0]}</p>
                     <p>Recipient: {item[1]}</p>
                     <p>Amount: {state.web3Interface.utils.fromWei(item[2])} ETH</p>
-                    {!item[3] && <p>Waiting for approval</p>}
-                    {!item[4] && item[3] && <Button onClick={() => sendTransaction(item[0])}>Transfer</Button>}
+                    {!item[3] && (
+                        <>
+                            <Button disabled>Transfer</Button> <Button color="error" onClick={() => { cancelTransaction(item[0]) }}>Cancel</Button>
+                        </>
+                    )}
+                    {!item[4] && item[3] && (
+                        <>
+                            <Button>Transfer</Button>
+                            <Button color="error" onClick={() => { cancelTransaction(item[0]) }}>Cancel</Button>
+                        </>
+                    )
+                    }
                     <hr />
-                </div>)
+                </div >)
             })}
         </>
     );

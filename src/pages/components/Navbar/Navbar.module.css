@@ -37,3 +37,8 @@
 	color: #ffffff;
 	cursor: pointer;
 }
+
+.topnav {
+	display: flex;
+	gap: 1rem;
+}

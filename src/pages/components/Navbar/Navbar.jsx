@@ -81,7 +81,6 @@ export default function Navbar() {
         }
     }, [state.userWalletAddress]);
 
-
     return (
         <div className={styles.navbar}>
             <div>
@@ -89,7 +88,9 @@ export default function Navbar() {
             </div>
             <div className={styles.rightbar}>
                 {!state.loading && state.isConnected && !state.userIsBlacklisted && (
-                    <div>
+                    <div className={styles.topnav}>
+                        <p>Contract balance: {formatBalance(state.web3Interface.utils.fromWei(String(state.contractBalance)))} ETH</p>
+                        <p>|</p>
                         <p>Your balance: {formatBalance(state.web3Interface.utils.fromWei(String(state.userWalletBalance)))} ETH</p>
                         
                     </div>)

@@ -3,7 +3,7 @@ import { CssBaseline } from "@mui/material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import Head from "next/head";
 
-import { createContext, useCallback, useEffect, useMemo, useReducer } from "react";
+import { createContext, useEffect, useMemo, useReducer } from "react";
 import Navbar from "./components/Navbar/Navbar";
 import Start from "./components/Start/Start";
 
@@ -25,6 +25,7 @@ const initialState = {
   web3Interface: null,
   contractAddress: null,
   contractInterface: null,
+  contractBalance: 0,
   error: null,
   success: null
 }
@@ -53,6 +54,8 @@ const reducer = (state, action) => {
       return { ...state, contractAddress: action.payload };
     case "setContractInterface":
       return { ...state, contractInterface: action.payload };
+    case "setContractBalance":
+      return { ...state, contractBalance: action.payload };
     case "setError":
       return { ...state, error: action.payload };
     case "setSuccess":
@@ -69,11 +72,10 @@ export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   // Handling Error messages and success messages
-
   const handleError = (error) => {
     dispatch({ type: "setError", payload: error });
     setTimeout(() => {
-      dispatch({ type: "setError", payload: null })
+      dispatch({ type: "setError", payload: null });
     }, 2000);
   };
 
@@ -126,7 +128,19 @@ export default function App() {
         dispatch({ type: "setUserWalletBalance", payload: funds });
       } catch (error) {
         console.log(error);
-      } finally {
+      }
+    }
+  }
+
+  // Check the contract balance
+  const getContractBalance = async () => {
+    if (state.contractInterface) {
+      try {
+        const funds = await state.contractInterface.methods.getBalance().call();
+        dispatch({ type: "setContractBalance", payload: funds });
+        console.log(`There are ${funds} ETH in the contract`)
+      } catch (error) {
+        handleError(error.message);
       }
     }
   }
@@ -174,6 +188,10 @@ export default function App() {
     checkRights();
     checkFunds();
   }, [state.userWalletAddress])
+
+  useEffect(() => {
+    getContractBalance();
+  }, [state.contractInterface]);
 
   // Memoising state and dispatch to avoid unnecessary rendering
   const reduceProps = useMemo(() => {
