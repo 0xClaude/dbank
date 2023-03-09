@@ -138,7 +138,6 @@ export default function App() {
       try {
         const funds = await state.contractInterface.methods.getBalance().call();
         dispatch({ type: "setContractBalance", payload: funds });
-        console.log(`There are ${funds} ETH in the contract`)
       } catch (error) {
         handleError(error.message);
       }

@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 // Using a pausable functionality from OpenZeppelin
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-// Using the Address contract from OpenZeppelin
+// Using the Address contract from OpenZeppelin to transfer funds
 import "@openzeppelin/contracts/utils/Address.sol";
 
 contract DBank is ReentrancyGuard, Pausable {
@@ -29,7 +29,9 @@ contract DBank is ReentrancyGuard, Pausable {
     mapping(address => bool) public admin;
     mapping(address => bool) public blacklist;
 
-    // The transaciton status can have one of five statuses:
+    // The transaciton status can have one of four statuses:
+    // In the first three, the contract holds the funds of the user
+    // only in Transmitted, the funds are transmitted or withdrawn
     enum TransactionStatus {
         Pending,
         Approved,
@@ -107,7 +109,9 @@ contract DBank is ReentrancyGuard, Pausable {
     //
 
     // Assign a new owner to the contract
-    function changeOwner(address _newOwner) public onlyOwner whenNotPaused {
+    function changeOwner(
+        address _newOwner
+    ) public onlyOwner nonReentrant whenNotPaused {
         owner = _newOwner;
         emit ownerChanged(_newOwner);
     }
@@ -139,6 +143,7 @@ contract DBank is ReentrancyGuard, Pausable {
         address _addr
     ) public onlyAdmin nonReentrant whenNotPaused {
         require(!blacklist[_addr], "User is already blacklisted");
+        require(_addr != msg.sender, "You can't ban yourself");
         blacklist[_addr] = true;
         emit blacklistAdded(_addr);
     }
@@ -183,20 +188,19 @@ contract DBank is ReentrancyGuard, Pausable {
 
     // Request a new transfer
     function requestTransfer(
-        address payable _to,
-        uint256 _amount
+        address payable _to
     ) public payable nonReentrant notBanned whenNotPaused {
-        require(msg.sender.balance >= _amount, "Not enough ether");
+        require(msg.sender.balance >= msg.value, "Not enough ether");
         require(!isBlacklisted(_to), "Recipient is banned");
         transactions[msg.sender].push(
             Transaction(
                 transactionCount,
                 _to,
-                _amount,
+                msg.value,
                 TransactionStatus.Pending
             )
         );
-        emit transferRequested(transactionCount, msg.sender, _to, _amount);
+        emit transferRequested(transactionCount, msg.sender, _to, msg.value);
         transactionCount++;
     }
 
@@ -238,9 +242,8 @@ contract DBank is ReentrancyGuard, Pausable {
         Transaction storage transaction = transactions[_from][_transactionId];
         require(
             transaction.status != TransactionStatus.Transmitted,
-            "You already transmitted the funds"
+            "Funds were already transmitted"
         );
-        // We set this boolean to true, so the user cannot withdraw twice
         transaction.status = TransactionStatus.Transmitted;
 
         uint256 _amount = transactions[_from][_transactionId].amount;
@@ -258,10 +261,17 @@ contract DBank is ReentrancyGuard, Pausable {
             _transactionId
         ];
         require(
-            transaction.status == TransactionStatus.Approved,
-            "Transaction was not approved yet or funds have been transferred already."
+            transaction.recipient == msg.sender,
+            "This is not your transaction"
         );
-        require(msg.sender.balance >= transaction.amount, "Not enough Ether");
+        require(
+            transaction.status == TransactionStatus.Approved,
+            "Funds cannot be transfered."
+        );
+        require(
+            address(this).balance >= transaction.amount,
+            "Not enough Ether"
+        );
 
         address payable _to = payable(transaction.recipient);
         uint256 _amount = transaction.amount;

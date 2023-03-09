@@ -24,29 +24,6 @@ function UserScreen() {
         }
     }
 
-    // Helper function to deposit ETH into smart contract
-    const depositIntoContract = async (weiAmount) => {
-        const depositTransaction = {
-            from: state.userWalletAddress,
-            to: state.contractAddress,
-            value: weiAmount,
-            gasPrice: 0
-        }
-        try {
-            await state.web3Interface.eth.sendTransaction(depositTransaction, (error) => {
-                if (error) { handleError(error.message) }
-                else {
-                    handleSuccess("Transfer requested, please wait for approval.");
-                    dispatch({ type: "setUserWalletBalance", payload: state.userWalletBalance - weiAmount });
-                    dispatch({ type: "setContractBalance", payload: weiAmount });
-                }
-            })
-        } catch (error) {
-            handleError(error.message);
-        }
-
-    }
-
     // Submit a request for a transfer
     const requestTransfer = async () => {
         try {
@@ -58,11 +35,19 @@ function UserScreen() {
                 handleError("Please enter Recipient");
                 return;
             }
-            const weiAmount = state.web3Interface.utils.toWei(String(amount));
-            await state.contractInterface.methods.requestTransfer(sendTo, weiAmount).send({ from: state.userWalletAddress, gas: 3000000 });
 
-            // Depositing ETH into contract
-            depositIntoContract(weiAmount);
+            // Send the transaction request to the blockchain
+            const weiAmount = state.web3Interface.utils.toWei(String(amount));
+            await state.contractInterface.methods.requestTransfer(sendTo).send({ from: state.userWalletAddress, gas: 3000000, value: weiAmount });
+
+            // Calculate new values for the states
+            const newContractBalance = Number(weiAmount) + Number(state.contractBalance);
+            const newUserBalance = Number(state.userWalletBalance) - Number(weiAmount);
+
+            dispatch({ type: "setContractBalance", payload: newContractBalance });
+            dispatch({ type: "setUserWalletBalance", payload: newUserBalance });
+
+            handleSuccess("Transfer requested, please wait for approval.");
         } catch (error) {
             handleError(error.message);
         } finally {
@@ -84,7 +69,8 @@ function UserScreen() {
     // Cancel the transaction
     const cancelTransaction = async (id) => {
         try {
-            await state.contractInterface.methods.withdraw(state.userWalletAddress, id).call();
+            await state.contractInterface.methods.withdraw(state.userWalletAddress, id).send({ from: state.userWalletAddress, gas: 3000000 });
+
             // TODO update the contract and the wallet balance (We can do this via listener)
         } catch (error) {
             handleError(error.message);
@@ -96,18 +82,18 @@ function UserScreen() {
         checkTransfers();
     }, [state.userWalletAddress])
 
-    // Listen for Events emitted by the smart contract
+    // Listen to the "transferRequested" event
     useEffect(() => {
-        let transactionListener;
+        let transactionRequestedListener;
         if (state.contractInterface) {
             try {
-                transactionListener = state.contractInterface.events.transferRequested({}).
+                transactionRequestedListener = state.contractInterface.events.transferRequested({}).
                     on("data", (event) => {
                         const newTransaction = [event.returnValues[0], event.returnValues[2], event.returnValues[3], event.returnValues[4]];
-                        handleSuccess("Transfer requested");
                         setTransfers((previous) => {
                             return [...previous, newTransaction];
                         });
+                        handleSuccess("Transfer requested");
                     })
             } catch (error) {
                 handleError(error.message);
@@ -115,12 +101,46 @@ function UserScreen() {
         }
         // Clean up the listener
         return () => {
-            if (transactionListener) {
-                transactionListener.unsubscribe();
+            if (transactionRequestedListener) {
+                transactionRequestedListener.unsubscribe();
             }
         }
     }, []);
 
+    // Listen to the "transactionApproved Listener"
+    useEffect(() => {
+        let transactionApprovedListener;
+        if (state.contractInterface) {
+            try {
+                transactionApprovedListener = state.contractInterface.events.transferApproved({}).
+                    on("data", (event) => {
+                        console.log(`Loader listened. our transfers=${transfers}`);
+                        if (transfers) {
+                            const updatedTransfers = transfers.map(previousTransfers => {
+                                if (previousTransfers[0] === event.returnValues[1]) {
+                                    return [previousTransfers[0], previousTransfers[1], previousTransfers[2], "1"];
+                                } else {
+                                    return previousTransfers;
+                                }
+                            });
+                            console.log(`Updating transfers to: ${updatedTransfers}`);
+                            setTransfers(updatedTransfers);
+                        } else {
+                            console.log("It's empty");
+                        }
+
+                    })
+            } catch (error) {
+                handleError(error.message);
+            }
+        }
+        // Clean up the listener
+        return () => {
+            if (transactionApprovedListener) {
+                transactionApprovedListener.unsubscribe();
+            }
+        }
+    }, [])
 
     return (
         <>
@@ -131,22 +151,48 @@ function UserScreen() {
                 <Button onClick={requestTransfer}>Request transfer</Button>
             </Box>
             {transfers && transfers.map((item, index) => {
-                return (<div key={index}>
+                return (<div key={item[0]}>
                     <p>Transaction ID: {item[0]}</p>
                     <p>Recipient: {item[1]}</p>
                     <p>Amount: {state.web3Interface.utils.fromWei(item[2])} ETH</p>
-                    {!item[3] && (
+                    {item[3] === "0" && (
+                        <p>Status: Waiting for approval</p>
+                    )}
+                    {item[3] === "1" && (
+                        <p>Status: Approved</p>
+                    )}
+                    {item[3] === "2" && (
+                        <p>Status: Rejected</p>
+                    )}
+                    {item[3] === "3" && (
+                        <p>Status: Transferred</p>
+                    )}
+                    {(item[3] !== "1") && (
                         <>
-                            <Button disabled>Transfer</Button> <Button color="error" onClick={() => { cancelTransaction(item[0]) }}>Cancel</Button>
+                            <Button disabled>Transfer</Button>
                         </>
                     )}
-                    {!item[4] && item[3] && (
+                    {item[3] === "1" && (
                         <>
                             <Button>Transfer</Button>
-                            <Button color="error" onClick={() => { cancelTransaction(item[0]) }}>Cancel</Button>
                         </>
                     )
                     }
+                    {(item[3] === "0" || item[3] === "1") && (
+                        <>
+                            <Button color="error" onClick={() => { cancelTransaction(item[0]) }}>Cancel</Button>
+                        </>
+                    )}
+                    {item[3] === "2" && (
+                        <>
+                            <Button color="error" onClick={() => { cancelTransaction(item[0]) }}>Withdraw</Button>
+                        </>
+                    )}
+                    {item[3] === "3" && (
+                        <>
+                            <Button disabled color="error">Cancel</Button>
+                        </>
+                    )}
                     <hr />
                 </div >)
             })}
