@@ -18,10 +18,8 @@ Run the local environment
 
 # Todo
 
-Some features are not implemented yet:
-- Admin: Approve the transaction
-- Admin: Reject the transaction
-- User: submit approved transactions
-- Optional: user can cancel their requested transactions
+- Some state optimisation is still needed
+- Render different pages with react-router
+- Implement the pause feature
 
-Date: 06/03/2023
+Date: 09/03/2023
