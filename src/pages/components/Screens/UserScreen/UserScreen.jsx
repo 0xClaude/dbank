@@ -58,42 +58,36 @@ function UserScreen() {
 
     // Transfer the funds
     const sendTransaction = async (id) => {
+        console.log(state);
         try {
             await state.contractInterface.methods.transfer(id).send({ from: state.userWalletAddress, gas: 3000000 });
-            handleSuccess("Successfully send the money");
         } catch (error) {
             handleError(error.message);
         }
     }
 
-    // Cancel the transaction
+    // Cancel the transaction and withdraw funds
     const cancelTransaction = async (id) => {
         try {
             await state.contractInterface.methods.withdraw(state.userWalletAddress, id).send({ from: state.userWalletAddress, gas: 3000000 });
-
-            // TODO update the contract and the wallet balance (We can do this via listener)
         } catch (error) {
             handleError(error.message);
         }
     }
 
-    // Whenever the user changes his or her wallet, check for the transfers (s)he requested
+    // Whenever the user changes his or her wallet, check for transfers
     useEffect(() => {
         checkTransfers();
     }, [state.userWalletAddress])
 
-    // Listen to the "transferRequested" event
+    // Listen to the "transferRequested" event to add the event
     useEffect(() => {
         let transactionRequestedListener;
         if (state.contractInterface) {
             try {
                 transactionRequestedListener = state.contractInterface.events.transferRequested({}).
-                    on("data", (event) => {
-                        const newTransaction = [event.returnValues[0], event.returnValues[2], event.returnValues[3], event.returnValues[4]];
-                        setTransfers((previous) => {
-                            return [...previous, newTransaction];
-                        });
-                        handleSuccess("Transfer requested");
+                    on("data", () => {
+                        checkTransfers();
                     })
             } catch (error) {
                 handleError(error.message);
@@ -105,7 +99,7 @@ function UserScreen() {
                 transactionRequestedListener.unsubscribe();
             }
         }
-    }, []);
+    }, [state.contractInterface]);
 
     // Listen to the "transactionApproved Listener"
     useEffect(() => {
@@ -114,20 +108,19 @@ function UserScreen() {
             try {
                 transactionApprovedListener = state.contractInterface.events.transferApproved({}).
                     on("data", (event) => {
-                        console.log(`Loader listened. our transfers=${transfers}`);
-                        if (transfers) {
-                            const updatedTransfers = transfers.map(previousTransfers => {
-                                if (previousTransfers[0] === event.returnValues[1]) {
-                                    return [previousTransfers[0], previousTransfers[1], previousTransfers[2], "1"];
-                                } else {
-                                    return previousTransfers;
-                                }
-                            });
-                            console.log(`Updating transfers to: ${updatedTransfers}`);
-                            setTransfers(updatedTransfers);
-                        } else {
-                            console.log("It's empty");
+                        if (event.returnValues[0] === state.userWalletAddress) {
+                            if (transfers) {
+                                const updatedTransfers = transfers.map(previousTransfers => {
+                                    if (previousTransfers[0] === event.returnValues[1]) {
+                                        return [previousTransfers[0], previousTransfers[1], previousTransfers[2], "1"];
+                                    } else {
+                                        return previousTransfers;
+                                    }
+                                });
+                                setTransfers(updatedTransfers);
+                            }
                         }
+
 
                     })
             } catch (error) {
@@ -140,7 +133,7 @@ function UserScreen() {
                 transactionApprovedListener.unsubscribe();
             }
         }
-    }, [])
+    }, [state.contractInterface])
 
     return (
         <>
@@ -150,7 +143,8 @@ function UserScreen() {
                 <TextField value={amount} label="Amount" autoComplete="off" onChange={(e) => setAmount(Number(e.target.value))} />
                 <Button onClick={requestTransfer}>Request transfer</Button>
             </Box>
-            {transfers && transfers.map((item, index) => {
+            {transfers && transfers.map((item) => {
+                console.log(item);
                 return (<div key={item[0]}>
                     <p>Transaction ID: {item[0]}</p>
                     <p>Recipient: {item[1]}</p>
@@ -174,13 +168,16 @@ function UserScreen() {
                     )}
                     {item[3] === "1" && (
                         <>
-                            <Button>Transfer</Button>
+                            <Button onClick={() => {
+                                console.log(`Sending Transactin ID ${item[0]}`);
+                                sendTransaction(item[0]);
+                            }}>Transfer</Button>
                         </>
                     )
                     }
                     {(item[3] === "0" || item[3] === "1") && (
                         <>
-                            <Button color="error" onClick={() => { cancelTransaction(item[0]) }}>Cancel</Button>
+                            <Button color="error" onClick={() => { cancelTransaction(item[0]) }}>Cancel & Withdraw</Button>
                         </>
                     )}
                     {item[3] === "2" && (

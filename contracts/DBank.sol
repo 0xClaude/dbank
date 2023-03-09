@@ -12,8 +12,8 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 // Using a pausable functionality from OpenZeppelin
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-// Using the Address contract from OpenZeppelin to transfer funds
-import "@openzeppelin/contracts/utils/Address.sol";
+// // Using the Address contract from OpenZeppelin to transfer funds
+// import "@openzeppelin/contracts/utils/Address.sol";
 
 contract DBank is ReentrancyGuard, Pausable {
     // Set up the state variables
@@ -64,7 +64,11 @@ contract DBank is ReentrancyGuard, Pausable {
     );
     event transferApproved(address indexed _from, uint256 _id);
     event transferRejected(address indexed _from, uint256 _id);
-    event fundsWithdrawn(address indexed _from, uint256 _transactionId);
+    event fundsWithdrawn(
+        address indexed _from,
+        uint256 _transactionId,
+        uint256 _amount
+    );
     event transferCancelled(
         address _from,
         uint256 _transactionId,
@@ -247,38 +251,36 @@ contract DBank is ReentrancyGuard, Pausable {
         transaction.status = TransactionStatus.Transmitted;
 
         uint256 _amount = transactions[_from][_transactionId].amount;
-        Address.sendValue(_from, _amount);
+        (bool sent,) = _from.call{value: _amount}("");
+        require(sent, "Transaction failed");
 
         emit transferCancelled(msg.sender, _transactionId, _amount);
-        emit fundsWithdrawn(msg.sender, _transactionId);
+        emit fundsWithdrawn(msg.sender, _transactionId, _amount);
     }
 
     // When a transfer is approved, users can send the Ether
     function transfer(
         uint256 _transactionId
-    ) public payable nonReentrant notBanned whenNotPaused {
-        Transaction memory transaction = transactions[msg.sender][
+    ) public nonReentrant notBanned whenNotPaused {
+        Transaction storage transaction = transactions[msg.sender][
             _transactionId
         ];
-        require(
-            transaction.recipient == msg.sender,
-            "This is not your transaction"
-        );
         require(
             transaction.status == TransactionStatus.Approved,
             "Funds cannot be transfered."
         );
         require(
             address(this).balance >= transaction.amount,
-            "Not enough Ether"
+            "Not enough Ether."
         );
 
         address payable _to = payable(transaction.recipient);
         uint256 _amount = transaction.amount;
 
-        Address.sendValue(_to, _amount);
+        (bool sent,) = _to.call{value: _amount}("");
+        require(sent, "Transaction failed");
 
         transaction.status = TransactionStatus.Transmitted;
-        emit fundsWithdrawn(msg.sender, _transactionId);
+        emit fundsWithdrawn(msg.sender, _transactionId, _amount);
     }
 }

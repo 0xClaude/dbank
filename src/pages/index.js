@@ -192,6 +192,7 @@ export default function App() {
     getContractBalance();
   }, [state.contractInterface]);
 
+
   // Memoising state and dispatch to avoid unnecessary rendering
   const reduceProps = useMemo(() => {
     return { state, dispatch, handleSuccess, handleError }

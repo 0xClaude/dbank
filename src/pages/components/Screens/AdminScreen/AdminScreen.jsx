@@ -54,6 +54,7 @@ function AdminScreen() {
                 return !approveddRequests && !rejectedRequests && !cancelledRequests;
             });
             setTransactionEvents(filteredRequests);
+
         } catch (error) {
             handleError(error.message);
         }
@@ -97,6 +98,7 @@ function AdminScreen() {
             try {
                 transferRequestedListener = state.contractInterface.events.transferRequested({}).
                     on("data", (event) => {
+                        console.log(event);
                         getPastTransactionRequestEvents();
                     });
             } catch (error) {
